@@ -1,0 +1,89 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@theme inline {
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-playfair);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+}
+
+/*
+ * Semantic design tokens. Every surface in the app (public site AND admin)
+ * references these variables instead of raw hex values, which is what makes
+ * the light/dark theme a single switch on <html data-theme="dark">.
+ */
+:root {
+  color-scheme: light;
+  --bg: #f5f3ee;          /* warm ivory page background */
+  --bg-soft: #edeae1;     /* alternating band sections */
+  --card: #ffffff;        /* cards, inputs, popovers */
+  --ink: #0b1f3a;         /* headings / primary text — midnight navy */
+  --body: #1b2a3a;        /* body copy */
+  --muted: #667085;       /* secondary text — slate */
+  --line: #e4dfd4;        /* borders / dividers */
+  --chip: #eeeae0;        /* soft fills: chips, hover fills, tiles */
+  --accent: #c9a45c;      /* brand champagne gold */
+  --accent-soft: #e0c88a; /* gold on dark surfaces */
+  --ink-solid: #0b1f3a;   /* solid navy surfaces (buttons, dark bands) */
+  --ring: #c9a45c;
+  --danger-bg: #f6e7e2;
+  --danger-fg: #a34f3d;
+  --warn-bg: #f7ecd9;
+  --warn-fg: #8a6224;
+  --info-bg: #e6ebf4;
+  --info-fg: #3d5a80;
+  /* shadcn/base aliases kept in sync */
+  --background: var(--bg);
+  --foreground: var(--body);
+  --border: var(--line);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #060f1c;
+  --bg-soft: #0b1f3a;
+  --card: #0e2340;
+  --ink: #f5f3ee;
+  --body: #d7dee8;
+  --muted: #93a1b5;
+  --line: #1c3450;
+  --chip: #143257;
+  --accent: #d8b877;
+  --accent-soft: #e0c88a;
+  --ink-solid: #123156;   /* lifted navy so solid buttons stay visible on the dark page */
+  --ring: #d8b877;
+  --danger-bg: #3a231d;
+  --danger-fg: #e29a8b;
+  --warn-bg: #38301e;
+  --warn-fg: #e0bd7f;
+  --info-bg: #1f2c3d;
+  --info-fg: #a9c3e2;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-inter), Arial, sans-serif; transition: background-color .25s ease, color .25s ease; }
+.font-serif { font-family: var(--font-playfair), Georgia, serif; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { cursor: pointer; }
+
+/* Anchor navigation must clear the sticky 72px header. */
+section[id] { scroll-margin-top: 84px; }
+
+/* Keep the editorial layout comfortable on narrow screens and safe around device cutouts. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+img { max-width: 100%; }
+::selection { background: var(--accent); color: #fff; }
+@media (max-width: 640px) {
+  html { overflow-x: hidden; }
+  body { min-width: 320px; overflow-x: hidden; }
+  button, a { min-height: 42px; }
+  input, textarea, select { font-size: 16px; }
+}
+@media (min-width: 641px) and (max-width: 1024px) {
+  .max-w-\[1440px\] { max-width: 100%; }
+}
