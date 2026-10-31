@@ -1,7 +1,7 @@
 import type { AnalyticsReport, Lead, LeadInput, Media, Property, PropertyInput, PropertyQuery } from './types'
 
-export const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080').replace(/\/+$/, '')
-
+// export const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080').replace(/\/+$/, '')
+export const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/+$/, '')
 export class ApiError extends Error {
   status: number
 
