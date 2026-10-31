@@ -1,4 +1,3 @@
-
 name: Build and Deploy Real Estate
 
 on:
@@ -60,7 +59,9 @@ jobs:
           ssh -i ~/.ssh/deploy_key \
             ${{ secrets.CPANEL_USER }}@${{ secrets.CPANEL_HOST }} \
             'cd /home/appartme/real-estate &&
-             mkdir -p .next &&
+             mkdir -p tmp &&
+             rm -rf .next &&
              tar -xzf real-estate-linux.tar.gz &&
              rm -f real-estate-linux.tar.gz &&
-             echo "Deployment files extracted"'
+             touch tmp/restart.txt &&
+             echo "Clean deployment completed and Passenger restart requested"'
