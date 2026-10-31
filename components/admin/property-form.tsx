@@ -393,10 +393,52 @@ export function PropertyForm({
             />
           </label>
 
-          <label className="sm:col-span-2">
-            <span className="mb-1 block text-xs font-semibold text-(--muted)">Amenities / features (comma separated)</span>
-            <input value={featuresText} onChange={(e) => setFeaturesText(e.target.value)} className={inputClass} />
-          </label>
+          <div className="sm:col-span-2">
+            <span className="mb-1 block text-xs font-semibold text-(--muted)">Amenities / features</span>
+            {featureList.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {featureList.map((feature) => (
+                  <span
+                    key={feature}
+                    className="inline-flex items-center gap-1 rounded-full bg-(--chip) px-3 py-1 text-xs font-semibold text-(--ink)"
+                  >
+                    {feature}
+                    <button
+                      type="button"
+                      onClick={() => setFeatureList(featureList.filter((item) => item !== feature))}
+                      aria-label={`Remove ${feature}`}
+                      className="text-(--muted) hover:text-(--ink)"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                value={featureDraft}
+                onChange={(e) => setFeatureDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault()
+                    addFeature(featureDraft)
+                  }
+                }}
+                placeholder="Type an amenity and press Enter (e.g. Parking, 24/7 security)"
+                className={`${inputClass} flex-1`}
+              />
+              <button
+                type="button"
+                onClick={() => addFeature(featureDraft)}
+                aria-label="Add amenity"
+                className="shrink-0 rounded-xl border border-(--line) px-3 text-(--muted) hover:bg-(--chip) hover:text-(--ink)"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-(--muted)">Paste a comma-separated list into the box to add several at once.</p>
+          </div>
 
           {/* Additional listing details — shown on the public listing page */}
           <div className="sm:col-span-2 rounded-2xl border border-(--line) bg-(--bg-soft) p-4">
@@ -471,45 +513,141 @@ export function PropertyForm({
             </div>
           </div>
 
-          {/* Rooms & sizes editor */}
-          <div className="sm:col-span-2">
+          {/* Rooms & sizes editor — one row per room/unit, kept in the order visitors see. */}
+          <div className="sm:col-span-2 rounded-2xl border border-(--line) bg-(--bg-soft) p-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-(--muted)">Rooms &amp; sizes</span>
+              <span className="text-xs font-bold uppercase tracking-[.16em] text-(--accent)">Rooms &amp; sizes</span>
               <button
-                onClick={() => setRooms([...rooms, { name: '', size: '', description: '' }])}
-                className="inline-flex items-center gap-1 rounded-full border border-(--line) px-3 py-1.5 text-xs font-semibold text-(--muted) hover:bg-(--chip)"
+                type="button"
+                onClick={() => addRoom()}
+                className="inline-flex items-center gap-1 rounded-full border border-(--line) bg-(--card) px-3 py-1.5 text-xs font-semibold text-(--muted) hover:bg-(--chip)"
               >
                 <Plus size={12} /> Add room
               </button>
             </div>
-            <div className="mt-2 grid gap-2">
-              {rooms.map((room, i) => (
-                <div key={i} className="flex gap-2">
-                  <input
-                    value={room.name}
-                    onChange={(e) => setRooms(rooms.map((r, j) => (j === i ? { ...r, name: e.target.value } : r)))}
-                    placeholder="Room name (e.g. Primary suite)"
-                    className={`${inputClass} flex-1`}
-                  />
-                  <input
-                    value={room.size}
-                    onChange={(e) => setRooms(rooms.map((r, j) => (j === i ? { ...r, size: e.target.value } : r)))}
-                    placeholder="Size (e.g. 14 × 12 ft)"
-                    className={`${inputClass} w-36`}
-                  />
+
+            <label className="mt-3 block">
+              <span className="mb-1 block text-xs font-semibold text-(--muted)">How this listing is priced</span>
+              <select
+                value={form.pricingMode ?? 'single'}
+                onChange={(e) => setForm({ ...form, pricingMode: e.target.value })}
+                className={inputClass}
+              >
+                {pricingModes.map((mode) => (
+                  <option key={mode.value} value={mode.value}>
+                    {mode.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {missingPresets.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {missingPresets.map((preset) => (
                   <button
-                    onClick={() => setRooms(rooms.filter((_, j) => j !== i))}
-                    className="shrink-0 rounded-xl border border-(--line) px-3 text-(--danger-fg) hover:bg-(--danger-bg)"
-                    aria-label={`Remove room ${i + 1}`}
+                    type="button"
+                    key={preset}
+                    onClick={() => addRoom(preset)}
+                    className="rounded-full border border-(--line) bg-(--card) px-3 py-1 text-xs font-semibold text-(--muted) hover:bg-(--chip) hover:text-(--ink)"
                   >
-                    <Trash2 size={14} />
+                    + {preset}
                   </button>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-3 grid gap-2">
+              {rooms.map((room, i) => (
+                <div key={i} className="grid gap-2 rounded-xl border border-(--line) bg-(--card) p-3">
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <input
+                      value={room.name}
+                      onChange={(e) => patchRoom(i, { name: e.target.value })}
+                      placeholder="Room / unit name"
+                      className={inputClass}
+                    />
+                    <input
+                      value={room.level}
+                      onChange={(e) => patchRoom(i, { level: e.target.value })}
+                      placeholder="Level (e.g. 3rd floor, Tower A)"
+                      className={inputClass}
+                    />
+                    <input
+                      value={room.size}
+                      onChange={(e) => patchRoom(i, { size: e.target.value })}
+                      placeholder="Size (e.g. 14 × 12 ft / 120 m²)"
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={room.status}
+                      onChange={(e) => patchRoom(i, { status: e.target.value })}
+                      className={`${inputClass} w-36`}
+                    >
+                      {unitStatusOptions.map((status) => (
+                        <option key={status} value={status}>
+                          {status === '' ? 'No status' : status}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min={0}
+                      value={room.price || ''}
+                      onChange={(e) => patchRoom(i, { price: Number(e.target.value) || 0 })}
+                      placeholder="Unit price (ETB)"
+                      className={`${inputClass} w-44`}
+                    />
+                    <div className="ml-auto flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => moveRoom(i, -1)}
+                        disabled={i === 0}
+                        aria-label={`Move room ${i + 1} up`}
+                        className="rounded-lg border border-(--line) px-2 py-1.5 text-(--muted) disabled:opacity-40 hover:bg-(--chip)"
+                      >
+                        <ArrowUp size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveRoom(i, 1)}
+                        disabled={i === rooms.length - 1}
+                        aria-label={`Move room ${i + 1} down`}
+                        className="rounded-lg border border-(--line) px-2 py-1.5 text-(--muted) disabled:opacity-40 hover:bg-(--chip)"
+                      >
+                        <ArrowDown size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRooms(rooms.filter((_, j) => j !== i))}
+                        aria-label={`Remove room ${i + 1}`}
+                        className="rounded-lg border border-(--line) px-2 py-1.5 text-(--danger-fg) hover:bg-(--danger-bg)"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    value={room.description}
+                    onChange={(e) => patchRoom(i, { description: e.target.value })}
+                    placeholder="Description (optional)"
+                    className={inputClass}
+                  />
                 </div>
               ))}
               {rooms.length === 0 && (
                 <p className="text-xs text-(--muted)">No rooms defined — visitors will only see the overview.</p>
               )}
             </div>
+
+            {isSchedule && (
+              <p className="mt-2 text-xs text-(--muted)">
+                {pricedRooms.length > 0
+                  ? `Visitors see “From ${formatPrice(cheapestUnit)}” up to ${formatPrice(dearestUnit)} · ${availableUnits} of ${pricedRooms.length} priced unit(s) still available.`
+                  : 'Per-unit pricing needs at least one priced unit before the listing can be saved.'}
+              </p>
+            )}
           </div>
 
           {addressFields.map((field) => (
