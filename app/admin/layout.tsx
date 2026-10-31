@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { BarChart3, Building2, Image as ImageIcon, LayoutDashboard, LogOut, Menu, MessageSquare, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import { LoadingState } from '@/components/admin/admin-ui'
@@ -124,21 +125,36 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Off-canvas drawer for tablets and phones */}
-      {navOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-[#060f1c]/50" onClick={() => setNavOpen(false)} aria-hidden="true" />
-          <aside className="absolute inset-y-0 left-0 w-72 max-w-[80vw] border-r border-(--line) bg-(--bg) py-6 shadow-xl">
-            <button
-              onClick={() => setNavOpen(false)}
-              aria-label="Close menu"
-              className="absolute right-3 top-3 flex size-9 shrink-0 items-center justify-center rounded-full border border-(--line) text-(--muted)"
+      <AnimatePresence>
+        {navOpen && (
+          <motion.div
+            key="nav"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-40 lg:hidden"
+          >
+            <div className="absolute inset-0 bg-[#060f1c]/50" onClick={() => setNavOpen(false)} aria-hidden="true" />
+            <motion.aside
+              initial={{ x: -320 }}
+              animate={{ x: 0 }}
+              exit={{ x: -320 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+              className="absolute inset-y-0 left-0 w-72 max-w-[80vw] border-r border-(--line) bg-(--bg) py-6 shadow-xl"
             >
-              <X size={16} />
-            </button>
-            {renderSidebar(() => setNavOpen(false))}
-          </aside>
-        </div>
-      )}
+              <button
+                onClick={() => setNavOpen(false)}
+                aria-label="Close menu"
+                className="absolute right-3 top-3 flex size-9 shrink-0 items-center justify-center rounded-full border border-(--line) text-(--muted)"
+              >
+                <X size={16} />
+              </button>
+              {renderSidebar(() => setNavOpen(false))}
+            </motion.aside>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Compact top bar for tablets and phones */}
       <div className="flex items-center gap-2 border-b border-(--line) px-4 py-3 lg:hidden">
@@ -163,7 +179,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
 
       <section className="min-w-0 flex-1 px-5 py-8 lg:px-10">
-        {session === 'checking' || session === 'unauthorized' ? <LoadingState /> : children}
+        {session === 'checking' || session === 'unauthorized' ? (
+          <LoadingState />
+        ) : (
+          // Admin screens are work surfaces, so motion stops here: one short fade
+          // per route change instead of scroll-linked reveals.
+          <motion.div
+            key={pathname}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            {children}
+          </motion.div>
+        )}
       </section>
     </div>
   )

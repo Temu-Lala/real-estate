@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { AnimatePresence } from 'motion/react'
 import type { Property } from '@/lib/types'
 import { api } from '@/lib/api'
 import { useFavorites } from '@/lib/use-favorites'
@@ -8,7 +9,7 @@ import { SiteHeader } from '@/components/site/site-header'
 import { Hero } from '@/components/site/hero'
 import { LatestProperties } from '@/components/site/latest-properties'
 import { InquiryDialog } from '@/components/site/inquiry-dialog'
-import { AboutSection, ApproachSection, ContactSection, CtaSection, ServicesSection } from '@/components/site/content-sections'
+import { AboutSection, ApproachSection, ContactSection, CtaSection } from '@/components/site/content-sections'
 import { SiteFooter } from '@/components/site/site-footer'
 
 export default function HomePage() {
@@ -59,15 +60,16 @@ export default function HomePage() {
       <ApproachSection />
       <AboutSection listingCount={properties.length} />
 
-      <ServicesSection startInquiry={startInquiry} />
-
       {/* 07 — Consultation and contact */}
       <ContactSection startInquiry={startInquiry} />
       <CtaSection startInquiry={startInquiry} />
 
       <SiteFooter />
 
-      {inquiryOpen && <InquiryDialog close={() => setInquiryOpen(false)} property={null} />}
+      {/* AnimatePresence lets the dialog play its close animation. */}
+      <AnimatePresence>
+        {inquiryOpen && <InquiryDialog key="inquiry" close={() => setInquiryOpen(false)} property={null} />}
+      </AnimatePresence>
     </main>
   )
 }

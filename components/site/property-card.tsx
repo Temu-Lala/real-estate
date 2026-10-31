@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { motion } from 'motion/react'
 import { Bath, BedDouble, Camera, Heart, MapPin, Ruler, Star } from 'lucide-react'
 import type { Property } from '@/lib/types'
 import { formatLocation, formatPrice, formatSquareFeet, primaryImage } from '@/lib/format'
@@ -25,14 +26,19 @@ export function PropertyCard({
   const badge = property.listingType || (property.status === 'active' ? 'For sale' : property.status)
 
   return (
-    <article
+    <motion.article
       onClick={(event) => {
         // Count an open intent when the card body/link is clicked, but ignore the
         // favorite toggle (and any other button) so it doesn't inflate clicks.
         if ((event.target as HTMLElement).closest('button')) return
         trackCardClick(property.id)
       }}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-(--line) bg-(--card) shadow-[0_10px_30px_-24px_rgba(11,31,58,.4)] transition hover:border-(--accent)/50 hover:shadow-[0_18px_44px_-30px_rgba(11,31,58,.5)]"
+      // Interaction-only motion (no mount entrance): these cards remount on every
+      // filter change, so an entrance animation would replay constantly.
+      whileHover={{ y: -6 }}
+      whileTap={{ scale: 0.99 }}
+      transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      className="group flex flex-col overflow-hidden rounded-2xl border border-(--line) bg-(--card) shadow-[0_10px_30px_-24px_rgba(11,31,58,.4)] transition-[border-color,box-shadow] duration-300 hover:border-(--accent)/50 hover:shadow-[0_18px_44px_-30px_rgba(11,31,58,.5)]"
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-(--chip)">
         <Link href={propertyHref(property)} className="block size-full">
@@ -61,11 +67,20 @@ export function PropertyCard({
         <div className="absolute right-4 top-4 flex flex-col items-end gap-2">
           <button
             onClick={toggle}
-            className="flex size-10 items-center justify-center rounded-full bg-(--card)/90 text-(--ink)"
+            className="flex size-10 items-center justify-center rounded-full bg-(--card)/90 text-(--ink) transition active:scale-95"
             aria-label={liked ? 'Remove from saved' : 'Save property'}
             aria-pressed={liked}
           >
-            <Heart className={liked ? 'fill-(--accent) text-(--accent)' : ''} size={17} />
+            {/* Re-keyed on state so the heart springs in whenever it is toggled. */}
+            <motion.span
+              key={String(liked)}
+              initial={{ scale: 0.6, opacity: 0.5 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 16 }}
+              className="flex"
+            >
+              <Heart className={liked ? 'fill-(--accent) text-(--accent)' : ''} size={17} />
+            </motion.span>
           </button>
           {photoCount > 0 && (
             <span className="flex items-center gap-1 rounded-full bg-[#0b1f3a]/75 px-2.5 py-1 text-[10px] font-semibold text-white">
@@ -96,12 +111,12 @@ export function PropertyCard({
         </div>
         <Link
           href={propertyHref(property)}
-          className="mt-5 inline-flex items-center justify-center rounded-full border border-(--ink)/25 px-5 py-2.5 text-xs font-semibold text-(--ink) transition hover:bg-(--ink-solid) hover:text-white"
+          className="mt-5 inline-flex items-center justify-center rounded-full border border-(--ink)/25 px-5 py-2.5 text-xs font-semibold text-(--ink) transition hover:bg-(--ink-solid) hover:text-white active:scale-[.98]"
         >
           View details
         </Link>
       </div>
-    </article>
+    </motion.article>
   )
 }
 

@@ -47,14 +47,29 @@ ALTER TABLE real_estate_properties
   ADD COLUMN IF NOT EXISTS is_sold     boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS is_featured boolean NOT NULL DEFAULT false;
 
+-- Idempotent migration for per-unit pricing. 'single' keeps one price for the whole
+-- property; 'schedule' prices each room/unit row and derives the listing price from
+-- the cheapest available unit so cards, filters and sorting stay truthful.
+ALTER TABLE real_estate_properties
+  ADD COLUMN IF NOT EXISTS pricing_mode text NOT NULL DEFAULT 'single';
+
 CREATE TABLE IF NOT EXISTS real_estate_rooms (
   id          text PRIMARY KEY,
   property_id text NOT NULL REFERENCES real_estate_properties (id) ON DELETE CASCADE,
   name        text NOT NULL DEFAULT '',
   size        text NOT NULL DEFAULT '',
   description text NOT NULL DEFAULT '',
+  level       text NOT NULL DEFAULT '',
+  status      text NOT NULL DEFAULT '',
+  price       bigint NOT NULL DEFAULT 0,
   sort_order  integer NOT NULL DEFAULT 0
 );
+
+-- Idempotent migration for databases created before units carried price and status.
+ALTER TABLE real_estate_rooms
+  ADD COLUMN IF NOT EXISTS level  text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS price  bigint NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS real_estate_rooms_property_idx
   ON real_estate_rooms (property_id, sort_order, id);

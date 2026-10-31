@@ -3,6 +3,7 @@
 import { MapPin } from 'lucide-react'
 import type { Property, PropertyQuery } from '@/lib/types'
 import { formatPrice, primaryImage } from '@/lib/format'
+import { Reveal } from './reveal'
 
 type Area = { name: string; count: number; min: number; max: number; image: string }
 
@@ -42,7 +43,8 @@ export function NeighborhoodsSection({
   return (
     <section className="border-y border-(--line) bg-(--bg-soft) px-5 py-16 lg:px-10 lg:py-24">
       <div className="mx-auto max-w-[1440px]">
-        <div className="flex flex-wrap items-end justify-between gap-4">
+        <Reveal>
+          <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-(--accent)">Where we work</p>
             <h2 className="mt-3 font-serif text-4xl text-(--ink) sm:text-5xl">Explore Addis Ababa neighborhoods.</h2>
@@ -51,17 +53,18 @@ export function NeighborhoodsSection({
             Areas shown reflect where our current listings actually are, with indicative price ranges from those
             listings.
           </p>
-        </div>
+          </div>
+        </Reveal>
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {areas.map((area) => (
+          {areas.map((area, i) => (
+            <Reveal key={area.name} delay={0.06 * i} y={20} scale={0.985}>
             <button
-              key={area.name}
               onClick={() => {
                 setFilters({ q: area.name, sort: 'updated' })
                 document.getElementById('properties')?.scrollIntoView({ behavior: 'smooth' })
               }}
-              className="group relative isolate h-52 overflow-hidden rounded-2xl border border-(--line) text-left"
+              className="group relative isolate h-52 overflow-hidden rounded-2xl border border-(--line) text-left transition-[border-color,box-shadow] duration-300 hover:border-(--accent)/60 hover:shadow-[0_18px_44px_-30px_rgba(11,31,58,.5)]"
             >
               <img
                 src={area.image}
@@ -82,6 +85,7 @@ export function NeighborhoodsSection({
                 )}
               </div>
             </button>
+            </Reveal>
           ))}
         </div>
       </div>

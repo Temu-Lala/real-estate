@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
+import { AnimatePresence } from 'motion/react'
 import type { Property, PropertyQuery } from '@/lib/types'
 import { api } from '@/lib/api'
 import { trackSearch } from '@/lib/track'
@@ -12,6 +12,7 @@ import { CategoriesSection } from '@/components/site/categories'
 import { NeighborhoodsSection } from '@/components/site/neighborhoods'
 import { InquiryDialog } from '@/components/site/inquiry-dialog'
 import { SiteFooter } from '@/components/site/site-footer'
+import { Reveal } from '@/components/site/reveal'
 
 // Deep links from the home hero (/properties?listingType=Sale&q=Bole…) become
 // the initial filter set. Parsed after mount so server and first client render
@@ -98,33 +99,19 @@ export default function PropertiesPage() {
     <main className="min-h-screen bg-(--bg) text-(--body)">
       <SiteHeader savedCount={favorites.length} startInquiry={startInquiry} />
 
-      {/* Screen intro */}
-      <div className="border-b border-(--line) bg-(--bg-soft)">
-        <div className="mx-auto max-w-[1440px] px-5 py-12 lg:px-10">
-          <nav aria-label="Breadcrumb" className="hidden items-center gap-2 text-xs text-(--muted) sm:flex">
-            <Link href="/" className="transition hover:text-(--ink)">
-              Home
-            </Link>
-            <span aria-hidden>/</span>
-            <span className="text-(--ink)/70">Properties</span>
-          </nav>
-          <div className="mt-4 text-xs font-bold uppercase tracking-[.2em] text-(--accent)">Browse</div>
-          <h1 className="mt-3 font-serif text-5xl tracking-tight text-(--ink)">All properties</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-(--muted)">
-            Search the full Platinum collection — filter by purpose, type, budget and location to find the right home.
-          </p>
-        </div>
-      </div>
-
-      <PropertyCollection
-        properties={properties}
-        loading={loading}
-        error={loadError}
-        filters={filters}
-        setFilters={setFilters}
-        favorites={favorites}
-        toggleFavorite={toggleFavorite}
-      />
+      {/* The browse screen rises as one panel on open; the cards inside it only
+          react to hover, so filtering never re-triggers an entrance. */}
+      <Reveal appear y={18} duration={0.45}>
+        <PropertyCollection
+          properties={properties}
+          loading={loading}
+          error={loadError}
+          filters={filters}
+          setFilters={setFilters}
+          favorites={favorites}
+          toggleFavorite={toggleFavorite}
+        />
+      </Reveal>
 
       {/* Data-driven browse aids (render only when real listings back them) */}
       <CategoriesSection properties={properties} setFilters={setFilters} />
@@ -132,7 +119,9 @@ export default function PropertiesPage() {
 
       <SiteFooter />
 
-      {inquiryOpen && <InquiryDialog close={() => setInquiryOpen(false)} property={null} />}
+      <AnimatePresence>
+        {inquiryOpen && <InquiryDialog key="inquiry" close={() => setInquiryOpen(false)} property={null} />}
+      </AnimatePresence>
     </main>
   )
 }

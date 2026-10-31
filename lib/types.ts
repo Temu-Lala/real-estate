@@ -18,8 +18,17 @@ export type Room = {
   name: string
   size: string
   description: string
+  /** Where the unit sits: "Ground floor", "Level 3", "Tower A". */
+  level: string
+  /** Unit state shown as a badge on the public schedule: Available | Reserved | Sold | ''. */
+  status: string
+  /** Price for this specific room/unit in whole currency units; 0 means unpriced. */
+  price: number
   mediaIds: string[]
 }
+
+// The shape the admin CMS edits: a unit row without server-assigned identity.
+export type RoomInput = Omit<Room, 'id' | 'mediaIds'>
 
 export type Media = {
   id: string
@@ -55,6 +64,8 @@ export type Property = {
   tenure?: string
   isSold?: boolean
   isFeatured?: boolean
+  /** 'single' = one price for the property; 'schedule' = each unit row is priced. */
+  pricingMode?: string
   address: Address
   coordinates: Coordinates
   rooms: Room[]
@@ -146,5 +157,6 @@ export type PropertyInput = Pick<
   tenure?: string
   isSold?: boolean
   isFeatured?: boolean
-  rooms?: Pick<Room, 'name' | 'size' | 'description'>[]
+  pricingMode?: string
+  rooms?: RoomInput[]
 }

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import {
   ArrowLeft,
   Bath,
@@ -40,6 +41,7 @@ import { PropertyCard } from './property-card'
 import { InquiryDialog } from './inquiry-dialog'
 import { SiteHeader } from './site-header'
 import { SiteFooter } from './site-footer'
+import { Reveal, RevealItem } from './reveal'
 import { MapView, hasValidCoordinates } from './map-view'
 import { CONTACT, telHref } from '@/lib/site-contact'
 import { trackGalleryOpen, trackInquiryOpen, trackPlanOpen, trackPropertyView } from '@/lib/track'
@@ -77,15 +79,18 @@ function toImageView(m: Media, fallbackAlt: string): ImageView {
 }
 
 // Consistent premium section heading: gold eyebrow + serif title + hairline rule.
+// Lifted on scroll so every section of the page shares one entrance rhythm.
 function SectionHeading({ eyebrow, title, action }: { eyebrow?: string; title: string; action?: ReactNode }) {
   return (
-    <div className="flex items-end justify-between gap-4 border-b border-(--line) pb-3">
-      <div className="min-w-0">
-        {eyebrow && <div className="text-[11px] font-bold uppercase tracking-[.22em] text-(--accent)">{eyebrow}</div>}
-        <h2 className="mt-1 font-serif text-[1.75rem] leading-tight tracking-tight text-(--ink)">{title}</h2>
+    <Reveal>
+      <div className="flex items-end justify-between gap-4 border-b border-(--line) pb-3">
+        <div className="min-w-0">
+          {eyebrow && <div className="text-[11px] font-bold uppercase tracking-[.22em] text-(--accent)">{eyebrow}</div>}
+          <h2 className="mt-1 font-serif text-[1.75rem] leading-tight tracking-tight text-(--ink)">{title}</h2>
+        </div>
+        {action}
       </div>
-      {action}
-    </div>
+    </Reveal>
   )
 }
 
@@ -345,7 +350,8 @@ export function PropertyDetail({ slug }: { slug: string }) {
         </div>
 
         {/* Title header */}
-        <header className="mt-4">
+        <Reveal appear y={16}>
+          <header className="mt-4">
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={`rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.14em] ${
@@ -383,10 +389,12 @@ export function PropertyDetail({ slug }: { slug: string }) {
               </div>
             </div>
           </div>
-        </header>
+          </header>
+        </Reveal>
 
         {/* Photo-led gallery */}
-        <section aria-label="Photo gallery" className="mt-8">
+        <Reveal appear delay={0.1} y={20}>
+          <section aria-label="Photo gallery" className="mt-8">
           {images.length === 1 ? (
             <button
               type="button"
@@ -473,8 +481,10 @@ export function PropertyDetail({ slug }: { slug: string }) {
             </>
           )}
         </section>
+        </Reveal>
 
         {/* Quick key-facts strip — one scannable glance at the essentials. */}
+        <Reveal appear delay={0.2} y={16}>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             { icon: BedDouble, label: 'Bedrooms', value: property.bedrooms > 0 ? String(property.bedrooms) : '—' },
@@ -493,6 +503,7 @@ export function PropertyDetail({ slug }: { slug: string }) {
             </div>
           ))}
         </div>
+        </Reveal>
 
         <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-12">
           <div className="min-w-0 space-y-12">
@@ -564,13 +575,14 @@ export function PropertyDetail({ slug }: { slug: string }) {
                 <SectionHeading eyebrow="What's included" title="Amenities & features" />
                 <ul className="mt-5 flex flex-wrap gap-2.5">
                   {property.features.map((feature, i) => (
-                    <li
+                    <RevealItem
                       key={`${feature}-${i}`}
+                      delay={Math.min(i, 6) * 0.04}
                       className="inline-flex items-center gap-2 rounded-full border border-(--line) bg-(--card) px-4 py-2 text-sm text-(--body)"
                     >
                       <Check size={15} className="shrink-0 text-(--accent)" />
                       {feature}
-                    </li>
+                    </RevealItem>
                   ))}
                 </ul>
               </section>
@@ -654,7 +666,8 @@ export function PropertyDetail({ slug }: { slug: string }) {
           </div>
 
           {/* Sticky enquiry panel */}
-          <aside className="lg:sticky lg:top-24 lg:self-start">
+          <Reveal appear delay={0.25} y={20} className="lg:sticky lg:top-24 lg:self-start">
+          <aside>
             <div className="overflow-hidden rounded-[24px] border border-(--line) bg-(--card) shadow-[0_24px_60px_-40px_rgba(11,31,58,.6)]">
               <div className="bg-gradient-to-br from-[#0b1f3a] to-[#060f1c] p-6 text-white">
                 <div className="text-[11px] font-bold uppercase tracking-[.2em] text-(--accent-soft)">
@@ -727,29 +740,46 @@ export function PropertyDetail({ slug }: { slug: string }) {
               </div>
             </div>
           </aside>
+          </Reveal>
         </div>
 
         {similar.length > 0 && (
           <section className="mt-16">
             <SectionHeading eyebrow="Continue exploring" title="Similar homes nearby" />
             <div className="mt-6 grid gap-x-6 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
-              {similar.map((p) => (
-                <PropertyCard key={p.id} property={p} liked={isFavorite(p.id)} toggle={() => toggleFavorite(p.id)} />
+              {similar.map((p, i) => (
+                <Reveal key={p.id} delay={Math.min(i, 4) * 0.06} y={20}>
+                  <PropertyCard property={p} liked={isFavorite(p.id)} toggle={() => toggleFavorite(p.id)} />
+                </Reveal>
               ))}
             </div>
           </section>
         )}
       </div>
 
-      {/* Fixed mobile action bar — keeps the next step visible on small screens */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-(--line) bg-(--card)/95 px-4 pt-3 shadow-[0_-10px_30px_-20px_rgba(11,31,58,.6)] backdrop-blur pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+      {/* Fixed mobile action bar — keeps the next step visible on small screens.
+          Slides up after the page content has settled in. */}
+      <motion.div
+        initial={{ y: 88, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 28, delay: 0.35 }}
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-(--line) bg-(--card)/95 px-4 pt-3 shadow-[0_-10px_30px_-20px_rgba(11,31,58,.6)] backdrop-blur pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden"
+      >
         <div className="flex items-center gap-3">
           <button
             onClick={() => toggleFavorite(property.id)}
             aria-label={liked ? 'Remove from shortlist' : 'Save this home'}
-            className="flex size-11 shrink-0 items-center justify-center rounded-full border border-(--line) text-(--muted)"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full border border-(--line) text-(--muted) transition active:scale-95"
           >
-            <Heart size={18} className={liked ? 'fill-(--accent) text-(--accent)' : ''} />
+            <motion.span
+              key={String(liked)}
+              initial={{ scale: 0.6, opacity: 0.5 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 16 }}
+              className="flex"
+            >
+              <Heart size={18} className={liked ? 'fill-(--accent) text-(--accent)' : ''} />
+            </motion.span>
           </button>
           <a
             href={waHref}
@@ -767,16 +797,22 @@ export function PropertyDetail({ slug }: { slug: string }) {
             {isSold ? 'Sold' : 'Request Viewing'}
           </button>
         </div>
-      </div>
+      </motion.div>
 
-      {viewer && viewerImage && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Image viewer"
-          onClick={() => setViewer(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#050d18]/94 p-4 backdrop-blur-sm"
-        >
+      <AnimatePresence>
+        {viewer && viewerImage && (
+          <motion.div
+            key="viewer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Image viewer"
+            onClick={() => setViewer(null)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#050d18]/94 p-4 backdrop-blur-sm"
+          >
           <button
             type="button"
             onClick={() => setViewer(null)}
@@ -786,12 +822,21 @@ export function PropertyDetail({ slug }: { slug: string }) {
             <X size={22} />
           </button>
 
-          <img
-            src={viewerImage.url}
-            alt={viewerImage.alt}
-            onClick={(event) => event.stopPropagation()}
-            className="max-h-[86vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"
-          />
+          {/* One photo hands over to the next: wait for the fade-out so the two
+              never sit in the flex row together and shove each other sideways. */}
+          <AnimatePresence mode="wait">
+            <motion.img
+              key={viewerImage.url}
+              src={viewerImage.url}
+              alt={viewerImage.alt}
+              onClick={(event) => event.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.99 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              className="max-h-[86vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"
+            />
+          </AnimatePresence>
 
           {viewer.images.length > 1 && (
             <>
@@ -817,16 +862,27 @@ export function PropertyDetail({ slug }: { slug: string }) {
               >
                 <ChevronRight size={22} />
               </button>
-              <span className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-4 py-1.5 text-xs font-semibold text-white">
+              {/* Opacity only: this badge is centred with -translate-x-1/2, and an
+                  animated transform would override that centring. */}
+              <motion.span
+                key={viewer.i}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.2 }}
+                className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-4 py-1.5 text-xs font-semibold text-white"
+              >
                 {viewer.i + 1} / {viewer.images.length}
-              </span>
+              </motion.span>
             </>
           )}
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <SiteFooter />
-      {inquiryOpen && <InquiryDialog close={() => setInquiryOpen(false)} property={property} />}
+      <AnimatePresence>
+        {inquiryOpen && <InquiryDialog key="inquiry" close={() => setInquiryOpen(false)} property={property} />}
+      </AnimatePresence>
     </main>
   )
 }

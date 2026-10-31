@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { motion } from 'motion/react'
 import { Mail, MessageCircle, Phone } from 'lucide-react'
 import type { LeadInput, Property } from '@/lib/types'
 import { api } from '@/lib/api'
 import { formatPrice } from '@/lib/format'
 import { CONTACT, telHref, whatsappHref, mailtoHref } from '@/lib/site-contact'
-import { Overlay } from './overlay'
+import { Overlay, OverlayPanel } from './overlay'
 
 export function InquiryDialog({
   close,
@@ -43,13 +44,20 @@ export function InquiryDialog({
 
   return (
     <Overlay close={close}>
-      <div className="relative w-full max-w-lg rounded-[28px] bg-(--card) p-7 sm:p-10">
+      <OverlayPanel className="relative w-full max-w-lg rounded-[28px] bg-(--card) p-7 sm:p-10">
         <button onClick={close} className="absolute right-5 top-5" aria-label="Close">
           ✕
         </button>
         {sent ? (
           <div className="py-10 text-center">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-(--chip) text-(--ink)">✓</div>
+            <motion.div
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 360, damping: 18 }}
+              className="mx-auto flex size-12 items-center justify-center rounded-full bg-(--chip) text-(--ink)"
+            >
+              ✓
+            </motion.div>
             <h2 className="mt-5 font-serif text-3xl text-(--ink)">We will be in touch.</h2>
             <p className="mt-2 text-sm text-(--muted)">Your inquiry has been recorded for our advisory team.</p>
           </div>
@@ -100,7 +108,7 @@ export function InquiryDialog({
               )}
               <button
                 disabled={busy}
-                className="rounded-full bg-(--ink-solid) px-5 py-3 font-semibold text-white disabled:opacity-60"
+                className="rounded-full bg-(--ink-solid) px-5 py-3 font-semibold text-white transition active:scale-[.99] disabled:opacity-60"
               >
                 {busy ? 'Sending…' : 'Send inquiry'}
               </button>
@@ -140,7 +148,7 @@ export function InquiryDialog({
             {CONTACT.phoneDisplay} · {CONTACT.email}
           </p>
         </div>
-      </div>
+      </OverlayPanel>
     </Overlay>
   )
 }

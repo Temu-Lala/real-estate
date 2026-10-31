@@ -67,6 +67,58 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-inter), Arial, sans-serif; transition: background-color .25s ease, color .25s ease; }
+
+/*
+ * Switching theme shines outward from the toggle button: the new palette is
+ * revealed through a circle that expands from the button's own centre, with a
+ * brief champagne-gold pulse riding the same edge. The circle geometry arrives
+ * as --vt-x / --vt-y / --vt-r, written on <html> by the toggle before it starts
+ * the transition; the pseudo-elements inherit custom properties from the root.
+ */
+@keyframes theme-reveal {
+  from { clip-path: circle(0px at var(--vt-x, 50%) var(--vt-y, 0%)); }
+  to { clip-path: circle(var(--vt-r, 2000px) at var(--vt-x, 50%) var(--vt-y, 0%)); }
+}
+/* The incoming palette lands slightly lit, then settles — the "shine" itself. */
+@keyframes theme-shimmer {
+  from { filter: brightness(1.32) saturate(1.08); }
+  to { filter: brightness(1) saturate(1); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* The old page stays put underneath while the new one wipes in over it. */
+  ::view-transition-old(root) { animation: none; }
+  ::view-transition-new(root) {
+    animation:
+      theme-reveal .6s cubic-bezier(.4, 0, .2, 1) both,
+      theme-shimmer .6s ease-out both;
+    clip-path: circle(var(--vt-r, 2000px) at var(--vt-x, 50%) var(--vt-y, 0%));
+  }
+}
+/* The body's own colour transition would double-fade inside the reveal. */
+html.vt-reveal body { transition: none; }
+
+/*
+ * Browsers without document.startViewTransition get the softer route: every
+ * themed surface cross-fades for the length of the swap instead of snapping,
+ * so the change still reads as light spreading across the page.
+ */
+html.theme-swapping *,
+html.theme-swapping *::before,
+html.theme-swapping *::after {
+  transition: background-color .34s ease, color .34s ease, border-color .34s ease, fill .34s ease !important;
+}
+
+/* Gold pulse layer used by the fallback path (no view-transition snapshots are
+   covering the page there, so a real element can carry the light outward). */
+.theme-shine {
+  position: fixed;
+  z-index: 100;
+  border-radius: 9999px;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(.08);
+  background: radial-gradient(circle, rgba(201, 164, 92, .34), rgba(201, 164, 92, 0) 66%);
+}
+
 .font-serif { font-family: var(--font-playfair), Georgia, serif; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; }

@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Crosshair, MapPin, Plus, Trash2 } from 'lucide-react'
-import type { Property, PropertyInput, Room } from '@/lib/types'
+import { ArrowDown, ArrowUp, Crosshair, MapPin, Plus, Trash2, X } from 'lucide-react'
+import type { Property, PropertyInput, RoomInput } from '@/lib/types'
+import { formatPrice } from '@/lib/format'
 import { api, resolveMediaUrl } from '@/lib/api'
 import { Overlay } from '@/components/site/overlay'
 import { MapView, hasValidCoordinates } from '@/components/site/map-view'
@@ -11,7 +12,6 @@ import { ErrorNote, StatusBadge } from '@/components/admin/admin-ui'
 const textFields: { key: keyof PropertyInput; label: string; type?: string }[] = [
   { key: 'title', label: 'Title' },
   { key: 'slug', label: 'Slug (optional — generated from title)' },
-  { key: 'price', label: 'Price (ETB — Ethiopian Birr)', type: 'number' },
   { key: 'propertyType', label: 'Property type' },
   { key: 'bedrooms', label: 'Bedrooms', type: 'number' },
   { key: 'bathrooms', label: 'Bathrooms', type: 'number' },
@@ -28,6 +28,94 @@ const detailOptions = {
   availability: ['', 'Ready to move', 'Under construction', 'Off-plan / pre-sale', 'Finishing soon'],
   furnishing: ['', 'Fully furnished', 'Semi furnished', 'Unfurnished'],
   tenure: ['', 'Free hold', 'Lease hold'],
+}
+
+// How a listing is quoted. In 'schedule' mode each room/unit row carries its own price
+// and the API derives the listing price from the cheapest available unit, so cards,
+// filters and sorting always agree with the published schedule.
+const pricingModes = [
+  { value: 'single', label: 'One price for the property' },
+  { value: 'schedule', label: 'Separate price per room / unit' },
+]
+
+const unitStatusOptions = ['', 'Available', 'Reserved', 'Sold']
+
+// One-tap additions for the common rooms in an Addis Ababa home; any other name can be
+// typed into the row.
+const roomPresets = [
+  'Master bedroom',
+  'Bedroom',
+  'Living room',
+  'Kitchen',
+  'Dining room',
+  'Bathroom',
+  'Balcony',
+  'Study',
+  'Garage',
+  'Staff room',
+]
+
+const emptyRoom: RoomInput = { name: '', size: '', level: '', status: '', price: 0, description: '' }
+
+// A row is worth saving when it carries anything a visitor could read — units are
+// routinely listed as size + price alone with no room name.
+function isMeaningfulRoom(room: RoomInput): boolean {
+  return Boolean(
+    room.name.trim() || room.size.trim() || room.level.trim() || room.description.trim() || room.price > 0,
+  )
+}
+
+const inputClass = 'w-full rounded-xl border border-(--line) bg-(--card) px-3 py-2.5 text-sm outline-none'
+
+// Trim, drop blanks and de-dupe case-insensitively. Splitting on commas also tolerates a
+// pasted "A, B, C" run so a single paste never becomes one giant amenity.
+function normaliseFeatures(items: string[]): string[] {
+  const seen = new Set<string>()
+  return items
+    .flatMap((item) => item.split(','))
+    .map((item) => item.trim())
+    .filter((item) => {
+      if (!item || seen.has(item.toLowerCase())) return false
+      seen.add(item.toLowerCase())
+      return true
+    })
+}
+
+/**
+ * A suggestion list you can still type over: the stored value stays free text, so a new
+ * option never needs a code change. Listing purpose deliberately remains a strict select
+ * because the site's Buy / Rent / Commercial tabs match its value exactly.
+ */
+function ComboField({
+  label,
+  value,
+  options,
+  listId,
+  onChange,
+}: {
+  label: string
+  value: string
+  options: string[]
+  listId: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <label>
+      <span className="mb-1 block text-xs font-semibold text-(--muted)">{label}</span>
+      <input
+        value={value}
+        list={listId}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Pick or type your own"
+        className={inputClass}
+      />
+      <datalist id={listId}>
+        {options.filter(Boolean).map((option) => (
+          <option key={option} value={option} />
+        ))}
+      </datalist>
+    </label>
+  )
 }
 
 const addressFields: { key: keyof Property['address']; label: string }[] = [
@@ -70,6 +158,7 @@ export function PropertyForm({
           tenure: property.tenure ?? '',
           isSold: property.isSold ?? false,
           isFeatured: property.isFeatured ?? false,
+          pricingMode: property.pricingMode ?? 'single',
           address: property.address,
           coordinates: property.coordinates,
           features: property.features,
@@ -94,23 +183,65 @@ export function PropertyForm({
           tenure: '',
           isSold: false,
           isFeatured: false,
+          pricingMode: 'single',
           address: { street: '', city: '', state: '', zip: '', country: '' },
           coordinates: { lat: 0, lng: 0 },
           features: [],
         },
   )
-  const [featuresText, setFeaturesText] = useState((property?.features ?? []).join(', '))
-  const [rooms, setRooms] = useState<Pick<Room, 'name' | 'size' | 'description'>[]>(
-    (property?.rooms ?? []).map(({ name, size, description }) => ({ name, size, description })),
+  const [featureList, setFeatureList] = useState<string[]>(property?.features ?? [])
+  const [featureDraft, setFeatureDraft] = useState('')
+  const [rooms, setRooms] = useState<RoomInput[]>(
+    (property?.rooms ?? []).map(({ name, size, level, status, price, description }) => ({
+      name,
+      size,
+      level,
+      status,
+      price,
+      description,
+    })),
   )
   const [files, setFiles] = useState<File[]>([])
   const [planFiles, setPlanFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
-  const inputClass = 'w-full rounded-xl border border-(--line) bg-(--card) px-3 py-2.5 text-sm outline-none'
-
   const pinned = hasValidCoordinates(form.coordinates)
+
+  // Derived pricing state — the schedule summary the admin sees while editing.
+  const isSchedule = (form.pricingMode ?? 'single') === 'schedule'
+  const pricedRooms = rooms.filter((room) => room.price > 0)
+  const cheapestUnit = pricedRooms.length > 0 ? Math.min(...pricedRooms.map((room) => room.price)) : 0
+  const dearestUnit = pricedRooms.length > 0 ? Math.max(...pricedRooms.map((room) => room.price)) : 0
+  const availableUnits = pricedRooms.filter((room) => room.status !== 'Sold').length
+
+  function patchRoom(index: number, patch: Partial<RoomInput>) {
+    setRooms(rooms.map((room, j) => (j === index ? { ...room, ...patch } : room)))
+  }
+
+  function moveRoom(index: number, delta: number) {
+    const target = index + delta
+    if (target < 0 || target >= rooms.length) return
+    const next = [...rooms]
+    ;[next[index], next[target]] = [next[target], next[index]]
+    setRooms(next)
+  }
+
+  function addRoom(name = '') {
+    setRooms([...rooms, { ...emptyRoom, name }])
+  }
+
+  function addFeature(raw: string) {
+    if (!raw.trim()) return
+    setFeatureList(normaliseFeatures([...featureList, raw]))
+    setFeatureDraft('')
+  }
+
+  // The row order the admin builds here is exactly the order visitors see (the API
+  // stores it as sort_order), so presets never land out of sequence.
+  const missingPresets = roomPresets.filter(
+    (preset) => !rooms.some((room) => room.name.trim().toLowerCase() === preset.toLowerCase()),
+  )
 
   // Ask the browser for the device position and drop the pin there, so the
   // admin never has to read or type coordinates by hand.
@@ -131,18 +262,21 @@ export function PropertyForm({
       setError('A property title is required.')
       return
     }
+    // A schedule with no priced unit would silently fall back to the old figure, so
+    // make the admin finish it rather than publish a misleading "From" price.
+    if ((form.pricingMode ?? 'single') === 'schedule' && !rooms.some((room) => room.price > 0)) {
+      setError('Per-unit pricing needs at least one room or unit with a price.')
+      return
+    }
     setBusy(true)
     setError('')
     const payload: PropertyInput = {
       ...form,
       status: publish ? 'active' : form.status,
-      rooms: rooms.filter((room) => room.name.trim() !== ''),
-      features: featuresText
-        .split(',')
-        .map((f) => f.trim())
-        .filter(Boolean)
-        // De-dupe case-insensitively so the amenities list stays clean.
-        .filter((f, i, arr) => arr.findIndex((x) => x.toLowerCase() === f.toLowerCase()) === i),
+      rooms: rooms
+        .filter(isMeaningfulRoom)
+        .map((room) => ({ ...room, price: Math.max(0, Math.round(room.price || 0)) })),
+      features: normaliseFeatures(featureList),
     }
     try {
       const saved = await api.upsertProperty(payload)

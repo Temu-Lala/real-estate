@@ -6,7 +6,6 @@ import { CONTACT, SOCIALS, telHref, mailtoHref } from '@/lib/site-contact'
 const exploreLinks = [
   { label: 'Properties', href: '/#properties' },
   { label: 'Our approach', href: '/#approach' },
-  { label: 'Services', href: '/#services' },
   { label: 'Contact', href: '/#contact' },
 ]
 
@@ -42,12 +41,16 @@ export function SiteFooter() {
         </div>
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-(--ink)">Office hours</h3>
-          <p className="mt-4 text-sm leading-6 text-(--muted)">
-            Monday – Friday: 8:00 AM – 5:00 PM
-            <br />
-            Saturday: 8:00 AM – 1:00 PM
-            <br />
-            Sunday: Closed
+          <p className="mt-4 flex items-start gap-2 text-sm leading-6 text-(--muted)">
+            <span className="relative mt-2 flex size-2.5 shrink-0" aria-hidden>
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+              <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
+            </span>
+            <span>
+              Open 24 hours, 7 days a week
+              <br />
+              Every day of the year
+            </span>
           </p>
         </div>
       </div>

@@ -29,13 +29,16 @@ type Property struct {
 	Tenure        string      `json:"tenure"`
 	IsSold        bool        `json:"isSold"`
 	IsFeatured    bool        `json:"isFeatured"`
-	Address       Address     `json:"address"`
-	Coordinates   Coordinates `json:"coordinates"`
-	Rooms         []Room      `json:"rooms"`
-	Features      []string    `json:"features"`
-	Media         []Media     `json:"media"`
-	CreatedAt     time.Time   `json:"createdAt"`
-	UpdatedAt     time.Time   `json:"updatedAt"`
+	// PricingMode is 'single' or 'schedule'; in schedule mode Price is derived from
+	// the cheapest available unit row, and it decides how the site quotes the listing.
+	PricingMode string      `json:"pricingMode"`
+	Address     Address     `json:"address"`
+	Coordinates Coordinates `json:"coordinates"`
+	Rooms       []Room      `json:"rooms"`
+	Features    []string    `json:"features"`
+	Media       []Media     `json:"media"`
+	CreatedAt   time.Time   `json:"createdAt"`
+	UpdatedAt   time.Time   `json:"updatedAt"`
 }
 
 type Address struct {
@@ -56,7 +59,13 @@ type Room struct {
 	Name        string   `json:"name"`
 	Size        string   `json:"size"`
 	Description string   `json:"description"`
-	MediaIDs    []string `json:"mediaIds"`
+	// Level is a free-text location within the property ("Ground floor",
+	// "Level 3", "Tower A"). Status is the unit's sale state and Price is the
+	// per-unit figure used by the schedule pricing mode.
+	Level    string   `json:"level"`
+	Status   string   `json:"status"`
+	Price    int64    `json:"price"`
+	MediaIDs []string `json:"mediaIds"`
 }
 
 type Media struct {
@@ -86,7 +95,7 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
-const propertyColumns = `id,slug,title,description,price,status,bedrooms,bathrooms,square_feet,lot_square_feet,year_built,property_type,listing_type,availability,available_from,payment_plan,furnishing,tenure,is_sold,is_featured,address,coordinates,features,created_at,updated_at`
+const propertyColumns = `id,slug,title,description,price,status,bedrooms,bathrooms,square_feet,lot_square_feet,year_built,property_type,listing_type,availability,available_from,payment_plan,furnishing,tenure,is_sold,is_featured,pricing_mode,address,coordinates,features,created_at,updated_at`
 
 // scanner adapts to both *sql.Row and *sql.Rows result scanning.
 type scanner interface {
@@ -107,6 +116,7 @@ func scanProperty(row scanner) (Property, error) {
 		&p.YearBuilt, &p.PropertyType, &p.ListingType,
 		&p.Availability, &p.AvailableFrom, &p.PaymentPlan, &p.Furnishing, &p.Tenure,
 		&p.IsSold, &p.IsFeatured,
+		&p.PricingMode,
 		&address, &coords, &feats,
 		&p.CreatedAt, &p.UpdatedAt,
 	)

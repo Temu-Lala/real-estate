@@ -12,9 +12,8 @@ export const CONTACT = {
   email: 'info@platinumpropertieset.com',
   address: 'WeloSefer, Ethio-China Road, Bole, Addis Ababa, Ethiopia',
   addressLines: ['WeloSefer, Ethio-China Road', 'Bole, Addis Ababa, Ethiopia'] as const,
-  hoursShort: 'Mon–Fri 8:00–5:00 · Sat 8:00–1:00 · Sunday closed',
-  hoursLong:
-    'Office hours: Monday–Friday 8:00 AM – 5:00 PM · Saturday 8:00 AM – 1:00 PM · Sunday closed',
+  hoursShort: 'Open 24/7 — every day',
+  hoursLong: 'Office hours: Open 24 hours a day, 7 days a week — every day',
 }
 
 // A real dialer link — opening this on a phone places the call directly.

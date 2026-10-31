@@ -21,6 +21,40 @@ export function formatPrice(price: number): string {
   return etb.format(price || 0)
 }
 
+// A schedule-priced listing quotes the cheapest unit that is still available — the same
+// rule the API applies when it derives the stored price on save. Rows left unpriced are
+// ignored, so a half-entered schedule never invents a figure.
+export type UnitSchedule = {
+  from: number
+  to: number
+  priced: number
+  available: number
+}
+
+export function unitSchedule(property: Property): UnitSchedule | null {
+  if ((property.pricingMode ?? 'single') !== 'schedule') return null
+  const priced = (property.rooms ?? []).filter((room) => room.price > 0)
+  if (priced.length === 0) return null
+  const all = priced.map((room) => room.price)
+  const open = priced.filter((room) => room.status !== 'Sold')
+  // Sold units are excluded from the headline; if every unit is sold, quote the
+  // schedule anyway rather than pretend the listing has no price.
+  const basis = open.length > 0 ? open.map((room) => room.price) : all
+  return {
+    from: Math.min(...basis),
+    to: Math.max(...all),
+    priced: priced.length,
+    available: open.length,
+  }
+}
+
+// One label everywhere the site quotes a price: schedule listings read "From ETB x",
+// everything else shows the single figure.
+export function priceLabel(property: Property): string {
+  const schedule = unitSchedule(property)
+  return schedule ? `From ${formatPrice(schedule.from)}` : formatPrice(property.price)
+}
+
 export function formatNumber(value: number): string {
   return (value || 0).toLocaleString('en-US')
 }

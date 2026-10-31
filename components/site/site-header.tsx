@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { AnimatePresence, motion, useMotionValueEvent, useScroll } from 'motion/react'
 import { Building2, Clock, Heart, Mail, Menu, MessageCircle, Phone, X } from 'lucide-react'
 import { ThemeToggle } from './theme-toggle'
 import { CONTACT, telHref, mailtoHref, whatsappHref } from '@/lib/site-contact'
@@ -10,7 +11,6 @@ const links = [
   { label: 'Home', href: '/' },
   { label: 'Properties', href: '/properties' },
   { label: 'About', href: '/#about' },
-  { label: 'Services', href: '/#services' },
   { label: 'Contact', href: '/#contact' },
 ]
 
@@ -22,6 +22,12 @@ export function SiteHeader({
   startInquiry?: () => void
 }) {
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  // Once the visitor starts reading the page, the utility strip folds away and
+  // the bar picks up a hairline shadow — the header stays but stops eating height.
+  const { scrollY } = useScroll()
+  const [condensed, setCondensed] = useState(false)
+  useMotionValueEvent(scrollY, 'change', (v) => setCondensed(v > 24))
 
   // CTAs open the inquiry dialog when a page provides one; otherwise they fall
   // back to the contact anchor so the header is safe to use anywhere.
@@ -58,13 +64,22 @@ export function SiteHeader({
   )
 
   return (
-    <header className="sticky top-0 z-30 border-b border-(--line) bg-(--bg)/95 backdrop-blur">
+    <header
+      className={`sticky top-0 z-30 border-b border-(--line) bg-(--bg)/95 backdrop-blur transition-shadow duration-300 ${
+        condensed ? 'shadow-[0_10px_30px_-24px_rgba(11,31,58,.55)]' : ''
+      }`}
+    >
       {/* Info strip — practical details before the visitor even scrolls. */}
-      <div className="hidden border-b border-(--line) bg-(--bg-soft) md:block">
-        <div className="mx-auto flex h-9 max-w-[1440px] items-center justify-between gap-6 px-5 text-[11px] font-medium text-(--muted) lg:px-10">
+      <motion.div
+        initial={false}
+        animate={{ height: condensed ? 0 : 36, opacity: condensed ? 0 : 1 }}
+        transition={{ duration: 0.28, ease: 'easeOut' }}
+        className="hidden overflow-hidden bg-(--bg-soft) md:block"
+      >
+        <div className="mx-auto flex h-9 max-w-[1440px] items-center justify-between gap-6 border-b border-(--line) px-5 text-[11px] font-medium text-(--muted) lg:px-10">
           <span className="flex items-center gap-1.5">
             <Clock size={12} className="text-(--accent)" />
-            Mon–Fri 8:00–5:00 · Sat 8:00–1:00 · Serving Addis Ababa from Bole
+            {CONTACT.hoursShort} · Serving Addis Ababa from Bole
           </span>
           <span className="flex items-center gap-5">
             <a href={telHref} className="flex items-center gap-1.5 hover:text-(--ink)">
@@ -75,9 +90,14 @@ export function SiteHeader({
             </a>
           </span>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="mx-auto flex h-[64px] max-w-[1440px] items-center justify-between gap-4 px-5 lg:h-[72px] lg:px-10">
+      <motion.div
+        initial={{ opacity: 0, y: -12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: 'easeOut' }}
+        className="mx-auto flex h-[64px] max-w-[1440px] items-center justify-between gap-4 px-5 lg:h-[72px] lg:px-10"
+      >
         <Link href="/" className="flex min-w-0 shrink items-center gap-3" aria-label="Platinum Properties — home">
           <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-(--ink-solid) text-(--accent)">
             <Building2 size={18} />
@@ -115,13 +135,31 @@ export function SiteHeader({
             aria-expanded={mobileOpen}
             className="flex size-10 shrink-0 items-center justify-center rounded-full border border-(--line) text-(--muted) transition hover:bg-(--chip) hover:text-(--ink) lg:hidden"
           >
-            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+            <motion.span
+              key={String(mobileOpen)}
+              initial={{ opacity: 0, rotate: -90 }}
+              animate={{ opacity: 1, rotate: 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex"
+            >
+              {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+            </motion.span>
           </button>
         </div>
-      </div>
+      </motion.div>
 
-      {mobileOpen && (
-        <nav className="border-t border-(--line) bg-(--bg) px-5 py-4 lg:hidden" aria-label="Mobile">
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.nav
+            key="mobile-nav"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.26, ease: 'easeOut' }}
+            className="overflow-hidden border-t border-(--line) bg-(--bg) lg:hidden"
+            aria-label="Mobile"
+          >
+            <div className="px-5 pb-5 pt-4">
           <div className="flex flex-col">
             {links.map((link) => (
               <Link
@@ -156,8 +194,10 @@ export function SiteHeader({
             </a>
           </div>
           <div className="mt-4">{contact}</div>
-        </nav>
-      )}
+            </div>
+          </motion.nav>
+        )}
+      </AnimatePresence>
     </header>
   )
 }

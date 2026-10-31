@@ -5,6 +5,7 @@ import { Heart, X } from 'lucide-react'
 import type { Property, PropertyQuery } from '@/lib/types'
 import { PropertyCard, PropertySkeleton } from './property-card'
 import { SearchFilters } from './search-filters'
+import { Reveal } from './reveal'
 
 const PURPOSE_LABEL: Record<string, string> = {
   Sale: 'For Sale',
@@ -70,15 +71,22 @@ export function PropertyCollection({
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-[.14em] text-(--muted)">Active</span>
           {chips.map((chip) => (
+          <Reveal
+            key={chip.key}
+            delay={0}
+            y={10}
+            amount={0}
+            className="inline-flex"
+          >
             <button
-              key={chip.key}
               onClick={chip.onRemove}
               aria-label={`Remove filter ${chip.label}`}
-              className="group inline-flex items-center gap-1.5 rounded-full border border-(--line) bg-(--card) px-3 py-1.5 text-xs font-medium text-(--ink) transition hover:border-(--ink)/40"
+              className="group inline-flex items-center gap-1.5 rounded-full border border-(--line) bg-(--card) px-3 py-1.5 text-xs font-medium text-(--ink) transition-[border-color,color] hover:border-(--ink)/40 active:scale-[.97]"
             >
               {chip.label}
               <X size={13} className="text-(--muted) transition group-hover:text-(--ink)" />
             </button>
+          </Reveal>
           ))}
           <button
             onClick={clearAll}
@@ -122,6 +130,8 @@ export function PropertyCollection({
         </p>
       )}
 
+      {/* Cards here are intentionally NOT wrapped in Reveal: they remount on every
+      filter change, so a scroll entrance would replay constantly and feel jarring. */}
       <div className="mt-8 grid gap-x-6 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
         {loading
           ? Array.from({ length: 3 }, (_, i) => <PropertySkeleton key={i} />)

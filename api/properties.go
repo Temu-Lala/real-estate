@@ -142,14 +142,14 @@ func (s *server) hydrate(ctx context.Context, p *Property) error {
 	p.Media = []Media{}
 
 	rooms, err := s.db.QueryContext(ctx,
-		`SELECT id,name,size,description FROM real_estate_rooms WHERE property_id=$1 ORDER BY sort_order,id`, p.ID)
+		`SELECT id,name,size,description,level,status,price FROM real_estate_rooms WHERE property_id=$1 ORDER BY sort_order,id`, p.ID)
 	if err != nil {
 		return err
 	}
 	defer rooms.Close()
 	for rooms.Next() {
 		var room Room
-		if err := rooms.Scan(&room.ID, &room.Name, &room.Size, &room.Description); err != nil {
+		if err := rooms.Scan(&room.ID, &room.Name, &room.Size, &room.Description, &room.Level, &room.Status, &room.Price); err != nil {
 			return err
 		}
 		p.Rooms = append(p.Rooms, room)
@@ -190,6 +190,69 @@ func (s *server) uniqueSlug(ctx context.Context, base, excludeID string) (string
 		}
 	}
 	return "", fmt.Errorf("could not derive a unique slug for %q", base)
+}
+
+// normaliseUnitStatus whitelists the unit state so a stray value from any client can
+// never reach the badge on the public schedule.
+func normaliseUnitStatus(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "available":
+		return "Available"
+	case "reserved", "hold":
+		return "Reserved"
+	case "sold":
+		return "Sold"
+	default:
+		return ""
+	}
+}
+
+// normaliseRooms trims every unit row, clamps negative prices and keeps any row that
+// carries real information — units are routinely listed as size + price alone, so a
+// name is no longer required for a row to be meaningful.
+func normaliseRooms(rooms []Room) []Room {
+	clean := make([]Room, 0, len(rooms))
+	for _, room := range rooms {
+		room.Name = strings.TrimSpace(room.Name)
+		room.Size = strings.TrimSpace(room.Size)
+		room.Description = strings.TrimSpace(room.Description)
+		room.Level = strings.TrimSpace(room.Level)
+		room.Status = normaliseUnitStatus(room.Status)
+		if room.Price < 0 {
+			room.Price = 0
+		}
+		if room.Name == "" && room.Size == "" && room.Level == "" && room.Description == "" && room.Price == 0 {
+			continue
+		}
+		clean = append(clean, room)
+	}
+	return clean
+}
+
+// cheapestUnitPrice is the headline figure for a schedule-priced listing: the lowest
+// price among units that are not sold. Sold units are skipped so "From ETB …" never
+// advertises a home that is already gone; when every priced unit is sold the cheapest
+// priced unit is still better than quoting nothing.
+func cheapestUnitPrice(rooms []Room) int64 {
+	var available, any int64
+	for _, room := range rooms {
+		if room.Price <= 0 {
+			continue
+		}
+		if any == 0 || room.Price < any {
+			any = room.Price
+		}
+		if room.Status == "Sold" {
+			continue
+		}
+		if available == 0 || room.Price < available {
+			available = room.Price
+		}
+	}
+	if available > 0 {
+		return available
+	}
+	return any
 }
 
 // adminProperties handles GET (moderated list) and POST (create or upsert).
@@ -250,14 +313,32 @@ func (s *server) adminProperties(w http.ResponseWriter, r *http.Request) {
 		p.Features = clean
 	}
 
+	// Unit pricing. 'schedule' means each room/unit row carries its own price, so the
+	// listing's stored price is derived from the cheapest available unit. Deriving it on
+	// write keeps one honest number in the column that price filters, sorting, cards and
+	// the enquiry flow all read — no query path has to understand the schedule.
+	if strings.EqualFold(strings.TrimSpace(p.PricingMode), "schedule") {
+		p.PricingMode = "schedule"
+	} else {
+		p.PricingMode = "single"
+	}
+	if p.Rooms != nil {
+		p.Rooms = normaliseRooms(p.Rooms)
+	}
+	if p.PricingMode == "schedule" {
+		if from := cheapestUnitPrice(p.Rooms); from > 0 {
+			p.Price = from
+		}
+	}
+
 	address, _ := json.Marshal(p.Address)
 	coords, _ := json.Marshal(p.Coordinates)
 	features, _ := json.Marshal(p.Features)
 
 	_, err = s.db.ExecContext(r.Context(), `
 		INSERT INTO real_estate_properties
-			(id,slug,title,description,price,status,bedrooms,bathrooms,square_feet,lot_square_feet,year_built,property_type,listing_type,availability,available_from,payment_plan,furnishing,tenure,is_sold,is_featured,address,coordinates,features)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+			(id,slug,title,description,price,status,bedrooms,bathrooms,square_feet,lot_square_feet,year_built,property_type,listing_type,availability,available_from,payment_plan,furnishing,tenure,is_sold,is_featured,pricing_mode,address,coordinates,features)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
 		ON CONFLICT (id) DO UPDATE SET
 			slug=EXCLUDED.slug, title=EXCLUDED.title, description=EXCLUDED.description,
 			price=EXCLUDED.price, status=EXCLUDED.status, bedrooms=EXCLUDED.bedrooms,
@@ -268,6 +349,7 @@ func (s *server) adminProperties(w http.ResponseWriter, r *http.Request) {
 			available_from=EXCLUDED.available_from, payment_plan=EXCLUDED.payment_plan,
 			furnishing=EXCLUDED.furnishing, tenure=EXCLUDED.tenure,
 			is_sold=EXCLUDED.is_sold, is_featured=EXCLUDED.is_featured,
+			pricing_mode=EXCLUDED.pricing_mode,
 			address=EXCLUDED.address,
 			coordinates=EXCLUDED.coordinates, features=EXCLUDED.features, updated_at=now()`,
 		p.ID, p.Slug, p.Title, p.Description, p.Price, p.Status,
@@ -276,27 +358,26 @@ func (s *server) adminProperties(w http.ResponseWriter, r *http.Request) {
 		strings.TrimSpace(p.ListingType),
 		strings.TrimSpace(p.Availability), strings.TrimSpace(p.AvailableFrom),
 		strings.TrimSpace(p.PaymentPlan), strings.TrimSpace(p.Furnishing), strings.TrimSpace(p.Tenure),
-		p.IsSold, p.IsFeatured,
+		p.IsSold, p.IsFeatured, p.PricingMode,
 		address, coords, features)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Replace room details when the payload supplies them.
-	if len(p.Rooms) > 0 {
+	// Replace the unit schedule when the payload supplies one. A present-but-empty
+	// array means "the admin removed every row" and must clear the table; only a
+	// payload that omits rooms entirely leaves the existing schedule untouched.
+	if p.Rooms != nil {
 		if _, err := s.db.ExecContext(r.Context(), `DELETE FROM real_estate_rooms WHERE property_id=$1`, p.ID); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		for i, room := range p.Rooms {
-			if strings.TrimSpace(room.Name) == "" {
-				continue
-			}
 			roomID := fmt.Sprintf("room_%d_%d", time.Now().UnixNano(), i)
 			if _, err := s.db.ExecContext(r.Context(),
-				`INSERT INTO real_estate_rooms (id,property_id,name,size,description,sort_order) VALUES ($1,$2,$3,$4,$5,$6)`,
-				roomID, p.ID, room.Name, room.Size, room.Description, i); err != nil {
+				`INSERT INTO real_estate_rooms (id,property_id,name,size,description,level,status,price,sort_order) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+				roomID, p.ID, room.Name, room.Size, room.Description, room.Level, room.Status, room.Price, i); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
