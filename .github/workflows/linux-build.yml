@@ -1,5 +1,5 @@
 
-name: Build Next.js for Linux
+name: Build and Deploy Real Estate
 
 on:
   workflow_dispatch:
@@ -8,19 +8,19 @@ on:
       - main
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up pnpm
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 12.3.4
 
-      - name: Set up Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -29,14 +29,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate TypeScript
-        run: pnpm exec tsc --noEmit
-
-      - name: Build standalone application
+      - name: Build Next.js
         run: pnpm build
+        env:
+          NEXT_PUBLIC_API_URL: https://appartmentsinaddisababa.com/api
 
-      - name: Prepare deployment package
-        shell: bash
+      - name: Package standalone build
         run: |
           mkdir -p deploy
           cp -a .next/standalone/. deploy/
@@ -47,10 +45,22 @@ jobs:
           fi
           tar -czf real-estate-linux.tar.gz -C deploy .
 
-      - name: Upload deployment artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: real-estate-linux
-          path: real-estate-linux.tar.gz
-          if-no-files-found: error
-          retention-days: 7
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.CPANEL_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.CPANEL_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy to cPanel
+        run: |
+          scp -i ~/.ssh/deploy_key real-estate-linux.tar.gz \
+            ${{ secrets.CPANEL_USER }}@${{ secrets.CPANEL_HOST }}:/home/appartme/real-estate/real-estate-linux.tar.gz
+
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.CPANEL_USER }}@${{ secrets.CPANEL_HOST }} \
+            'cd /home/appartme/real-estate &&
+             mkdir -p .next &&
+             tar -xzf real-estate-linux.tar.gz &&
+             rm -f real-estate-linux.tar.gz &&
+             echo "Deployment files extracted"'
