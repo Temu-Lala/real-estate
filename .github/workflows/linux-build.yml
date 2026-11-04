@@ -1,3 +1,4 @@
+
 name: Build and Deploy Real Estate
 
 on:
@@ -6,62 +7,186 @@ on:
     branches:
       - main
 
+concurrency:
+  group: real-estate-production-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout source code
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 2. Setup pnpm
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 12.3.4
 
+      # 3. Setup Node.js
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
 
+      # 4. Install dependencies
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 5. Build Next.js
       - name: Build Next.js
         run: pnpm build
         env:
           NEXT_PUBLIC_API_URL: ''
 
+      # 6. Package standalone build
       - name: Package standalone build
         run: |
-          mkdir -p deploy
-          cp -a .next/standalone/. deploy/
+          set -e
+
+          test -f .next/standalone/server.js
+
           mkdir -p deploy/.next
+
+          cp -a .next/standalone/. deploy/
           cp -a .next/static deploy/.next/static
+
           if [ -d public ]; then
             cp -a public deploy/public
           fi
+
           tar -czf real-estate-linux.tar.gz -C deploy .
 
-      - name: Configure SSH
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.CPANEL_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "${{ secrets.CPANEL_HOST }}" >> ~/.ssh/known_hosts
+          echo "Standalone package created successfully."
 
-      - name: Deploy to cPanel
+      # 7. Configure SSH
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.CPANEL_SSH_KEY }}
+          CPANEL_HOST: ${{ secrets.CPANEL_HOST }}
         run: |
-          scp -i ~/.ssh/deploy_key real-estate-linux.tar.gz \
-            ${{ secrets.CPANEL_USER }}@${{ secrets.CPANEL_HOST }}:/home/appartme/real-estate/real-estate-linux.tar.gz
+          set -e
+
+          mkdir -p ~/.ssh
+
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh-keyscan -H "$CPANEL_HOST" >> ~/.ssh/known_hosts
+
+          echo "SSH configuration completed."
+
+      # 8. Test cPanel SSH connectivity
+      - name: Test cPanel SSH connectivity
+        env:
+          CPANEL_HOST: ${{ secrets.CPANEL_HOST }}
+          CPANEL_USER: ${{ secrets.CPANEL_USER }}
+        run: |
+          set -e
+
+          echo "Testing cPanel SSH port..."
+
+          nc -vz -w 10 "$CPANEL_HOST" 22
+
+          echo "Testing SSH authentication..."
+
+          ssh -vv \
+            -o ConnectTimeout=15 \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -i ~/.ssh/deploy_key \
+            "$CPANEL_USER@$CPANEL_HOST" \
+            "echo SSH_CONNECTION_SUCCESS"
+
+          echo "SSH connectivity and authentication successful."
+
+      # 9. Deploy to cPanel
+      - name: Deploy to cPanel
+        env:
+          CPANEL_USER: ${{ secrets.CPANEL_USER }}
+          CPANEL_HOST: ${{ secrets.CPANEL_HOST }}
+        run: |
+          set -e
+
+          APP_DIR="/home/appartme/real-estate"
+          ARCHIVE="real-estate-linux.tar.gz"
+
+          echo "Uploading frontend build..."
+
+          scp -i ~/.ssh/deploy_key \
+            -o BatchMode=yes \
+            "$ARCHIVE" \
+            "$CPANEL_USER@$CPANEL_HOST:$APP_DIR/$ARCHIVE"
+
+          echo "Upload completed."
+
+          echo "Extracting and deploying frontend..."
 
           ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.CPANEL_USER }}@${{ secrets.CPANEL_HOST }} \
-            'cd /home/appartme/real-estate &&
-             mkdir -p tmp &&
-             rm -rf .next &&
-             tar -xzf real-estate-linux.tar.gz &&
-             rm -f real-estate-linux.tar.gz &&
-             touch tmp/restart.txt &&
-             echo "Clean deployment completed and Passenger restart requested"'
+            -o BatchMode=yes \
+            "$CPANEL_USER@$CPANEL_HOST" \
+            "bash -s" <<'REMOTE'
+
+          set -e
+
+          APP_DIR="/home/appartme/real-estate"
+          ARCHIVE="$APP_DIR/real-estate-linux.tar.gz"
+          STAGE="$APP_DIR/deploy-staging"
+
+          cd "$APP_DIR"
+
+          # Prepare staging directory
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
+
+          # Validate archive
+          tar -tzf "$ARCHIVE" >/dev/null
+
+          # Extract new build
+          tar -xzf "$ARCHIVE" -C "$STAGE"
+
+          # Validate standalone build
+          test -f "$STAGE/server.js"
+          test -f "$STAGE/.next/BUILD_ID"
+
+          # Replace Next.js build
+          rm -rf "$APP_DIR/.next"
+          mv "$STAGE/.next" "$APP_DIR/.next"
+
+          # Update standalone server files
+          cp -a "$STAGE/server.js" "$APP_DIR/"
+          cp -a "$STAGE/package.json" "$APP_DIR/"
+
+          # Update production dependencies if included
+          if [ -d "$STAGE/node_modules" ]; then
+            rm -rf "$APP_DIR/node_modules"
+            mv "$STAGE/node_modules" "$APP_DIR/node_modules"
+          fi
+
+          # Clean temporary files
+          rm -rf "$STAGE"
+          rm -f "$ARCHIVE"
+
+          # Restart Passenger
+          mkdir -p "$APP_DIR/tmp"
+          touch "$APP_DIR/tmp/restart.txt"
+
+          echo "Frontend deployment completed successfully."
+
+          REMOTE
+
+      # 10. Deployment summary
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "## Real Estate Deployment Successful" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Next.js build: Successful" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SSH connection: Successful" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Frontend upload: Successful" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Passenger restart requested" >> "$GITHUB_STEP_SUMMARY"
