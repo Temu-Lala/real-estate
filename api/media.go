@@ -39,8 +39,8 @@ func (s *server) file(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, path)
 }
 
-// mediaUpload accepts a multipart form with a propertyId and any number of
-// image files (at least one), validates each one, stores it on disk, and
+// mediaUpload accepts a multipart form with a propertyId, an optional kind and any
+// number of image files (at least one), validates each one, stores it on disk, and
 // records a media row. There is no pixel-dimension or photo-count limit —
 // the frontend renders every aspect ratio responsively. Files over the in-
 // memory threshold spill to temporary storage, so batch size is unbounded.
@@ -61,11 +61,14 @@ func (s *server) mediaUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// kind groups an upload into the photo gallery or the floor-plan set. Only
-	// these two values are accepted; anything else falls back to gallery so the
-	// public detail page can render each group in its own section.
-	kind := strings.TrimSpace(r.FormValue("kind"))
-	if kind != "floorplan" {
+	// kind groups an upload into the marketing gallery, the floor-plan set or the
+	// construction-progress log. Only these values are accepted; anything else
+	// falls back to gallery so the public detail page can render each group in its
+	// own section and cards/hero never pick up a drawing or a site photo.
+	kind := strings.ToLower(strings.TrimSpace(r.FormValue("kind")))
+	switch kind {
+	case "floorplan", "progress":
+	default:
 		kind = "gallery"
 	}
 
@@ -162,9 +165,14 @@ func saveImage(dir, folder string, index int, header *multipart.FileHeader, kind
 }
 
 // mediaAlt gives each kind a sensible default caption used on the public page.
+// The detail page recognises these strings to tell an admin-written caption from
+// the generated default, so keep them in sync with components/site/property-detail.tsx.
 func mediaAlt(kind string) string {
-	if kind == "floorplan" {
+	switch kind {
+	case "floorplan":
 		return "Floor plan"
+	case "progress":
+		return "Progress photo"
 	}
 	return "Property image"
 }

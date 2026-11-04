@@ -46,6 +46,7 @@ const EVENT_LABEL: Record<string, string> = {
   view: 'Listing views',
   gallery: 'Gallery opens',
   plan: 'Floor-plan opens',
+  progress: 'Progress-photo opens',
   inquiry: 'Inquiry opens',
   card: 'Listing card clicks',
 }

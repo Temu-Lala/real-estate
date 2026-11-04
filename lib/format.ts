@@ -1,24 +1,31 @@
 import { resolveMediaUrl } from './api'
-import type { Property, Room } from './types'
+import type { Media, Property, Room } from './types'
 
 export const PLACEHOLDER_IMAGE = '/placeholder.jpg'
 
-// Ethiopian listings quote in both square feet and square meters, so the
-// public UI always shows the pair. The stored value is square feet.
+// Square meters is the platform's unit: the CMS asks for m² and every visitor-facing
+// surface shows m². The API column stays square feet (unchanged storage), so the
+// figure is converted at this one boundary — see sqMetersToStoredSquareFeet, used
+// only when the admin saves, and squareMeters, used only when a number is displayed.
 const SQFT_PER_SQM = 10.7639
 
 export function squareMeters(squareFeet: number): number {
   return Math.round((squareFeet || 0) / SQFT_PER_SQM)
 }
 
-const etb = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'ETB',
-  maximumFractionDigits: 0,
-})
+/** Turn an m² value typed in the CMS into the square-feet figure the API stores. */
+export function sqMetersToStoredSquareFeet(value: number): number {
+  return Math.round((value || 0) * SQFT_PER_SQM)
+}
+
+// Prices are shown as bare figures: no currency symbol and no ISO code anywhere on
+// the site. The meaning of a number is carried by the label beside it ("Guide price",
+// "Min price", "/ m²"), never by a prefix, so the same figure renders identically in
+// the public site and the admin CMS.
+const amount = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
 
 export function formatPrice(price: number): string {
-  return etb.format(price || 0)
+  return amount.format(price || 0)
 }
 
 // A schedule-priced listing quotes the cheapest unit that is still available — the same
@@ -48,7 +55,7 @@ export function unitSchedule(property: Property): UnitSchedule | null {
   }
 }
 
-// One label everywhere the site quotes a price: schedule listings read "From ETB x",
+// One label everywhere the site quotes a price: schedule listings read "From x",
 // everything else shows the single figure.
 export function priceLabel(property: Property): string {
   const schedule = unitSchedule(property)
@@ -71,29 +78,25 @@ export function formatFriendlyDate(value: string): string {
 export function formatPricePerSqm(price: number, squareFeet: number): string {
   const m2 = squareMeters(squareFeet)
   if (!price || !m2) return '—'
-  return etb.format(Math.round(price / m2))
+  return amount.format(Math.round(price / m2))
 }
 
-export function formatSquareFeet(value: number): string {
-  if (!value) return '—'
-  const m2 = squareMeters(value)
-  return m2 > 0 ? `${formatNumber(value)} sq ft (${formatNumber(m2)} m²)` : `${formatNumber(value)} sq ft`
+/** Format a stored square-feet figure as the m² value the site shows. */
+export function formatArea(squareFeet: number): string {
+  const m2 = squareMeters(squareFeet)
+  return m2 > 0 ? `${formatNumber(m2)} m²` : '—'
 }
 
 // A room's size is free text from the CMS. When it's just a bare number we treat
-// it as an area in the platform's base unit (sq ft) and show the metric pair —
-// exactly like the specification panel — so visitors always see a clear unit.
-// Anything the admin typed with its own unit or dimensions (e.g. "4.2 × 3.6 m",
-// "12 ft × 10 ft") is passed through untouched. Empty stays empty (renders nothing).
+// it as an area in the platform's unit (m²) and append it, so visitors always see a
+// clear unit. Anything the admin typed with its own unit or dimensions (e.g.
+// "4.2 × 3.6 m") is passed through untouched. Empty stays empty (renders nothing).
 export function formatRoomSize(size: string): string {
   const raw = (size || '').trim()
   if (!raw) return ''
   if (/^[\d,]+(\.\d+)?$/.test(raw)) {
     const value = Number(raw.replace(/,/g, ''))
-    if (Number.isFinite(value) && value > 0) {
-      const m2 = squareMeters(value)
-      return m2 > 0 ? `${formatNumber(value)} sq ft (${formatNumber(m2)} m²)` : `${formatNumber(value)} sq ft`
-    }
+    if (Number.isFinite(value) && value > 0) return `${formatNumber(value)} m²`
   }
   return raw
 }
@@ -104,11 +107,16 @@ export function formatLocation(property: Property): string {
   return [street, primary, !primary ? country : ''].filter(Boolean).join(', ') || 'Location on request'
 }
 
+// Only gallery photos may represent a listing: floor plans are layout drawings and
+// progress shots document the build, so both stay in their own section on the detail
+// page instead of becoming a property's cover, card count or the landing backdrop.
+export function isMarketingPhoto(media: Media): boolean {
+  return media.kind !== 'floorplan' && media.kind !== 'progress'
+}
+
 export function galleryImages(property: Property): string[] {
-  // Floor plans are layout drawings, not marketing shots — keep them out of
-  // thumbnails and the landing hero so a plan never becomes a property's cover.
   const urls = (property.media ?? [])
-    .filter((media) => media.kind !== 'floorplan')
+    .filter(isMarketingPhoto)
     .map((media) => resolveMediaUrl(media.url))
     .filter(Boolean)
   return urls.length > 0 ? urls : [PLACEHOLDER_IMAGE]

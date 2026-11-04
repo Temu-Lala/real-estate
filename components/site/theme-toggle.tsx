@@ -17,12 +17,14 @@ type ViewTransitionDocument = Document & {
 
 function currentTheme(): Theme {
   if (typeof document === 'undefined') return 'light'
+  // Light is the base palette (the :root tokens in globals.css), so only an explicit
+  // data-theme="dark" means dark — the same rule the pre-paint script in the layout uses.
   return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
 }
 
-// Must track the applied palette, not the OS preference: the metadata theme-color
-// tags in the root layout are keyed on prefers-color-scheme, so a manual switch
-// has to rewrite them or the browser chrome keeps showing the other theme's hue.
+// Must track the applied palette, not the OS preference: the page ships one light
+// theme-color tag, so a manual switch has to rewrite it or the browser chrome keeps
+// showing the default hue while the site itself is already dark.
 const THEME_HEX: Record<Theme, string> = { light: '#f5f3ee', dark: '#060f1c' }
 
 function syncThemeColor(theme: Theme) {
@@ -32,10 +34,11 @@ function syncThemeColor(theme: Theme) {
 }
 
 /**
- * Light/dark switch. The chosen theme is persisted to localStorage under
- * 'haven_theme' and applied to <html data-theme> — the inline script in the
- * root layout restores it before first paint, so this component only has to
- * keep the attribute and the stored value in sync from then on.
+ * Light/dark switch. Light is the default; dark only comes back for a visitor who
+ * chose it before. The selection is persisted to localStorage under 'haven_theme'
+ * and applied to <html data-theme> — the inline script in the root layout restores it
+ * before first paint, so this component only has to keep the attribute and the
+ * stored value in sync from then on.
  *
  * Switching theme does not just flip: the new palette shines outward from this
  * button as an expanding circle (see the `theme-reveal` rules in globals.css),
@@ -100,7 +103,7 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
   }
 
   function toggle() {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark'
+    const next: Theme = theme === 'light' ? 'dark' : 'light'
     const root = document.documentElement
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {

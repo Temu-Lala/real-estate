@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { BarChart3, Building2, Image as ImageIcon, LayoutDashboard, LogOut, Menu, MessageSquare, X } from 'lucide-react'
 import { api } from '@/lib/api'
+import { BRAND } from '@/lib/site-contact'
+import { BrandLogo } from '@/components/site/brand-logo'
 import { LoadingState } from '@/components/admin/admin-ui'
 
 const nav = [
@@ -70,10 +72,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const renderSidebar = (onNavigate?: () => void) => (
     <div className="flex h-full flex-col">
       <div className="px-6">
-        <Link href="/" className="font-serif text-xl tracking-tight text-(--ink)">
-          Platinum Properties
+        <Link href="/" className="inline-flex min-w-0" aria-label={`${BRAND.name} — live site`}>
+          <BrandLogo className="h-10" />
         </Link>
-        <div className="mt-1 text-[9px] font-semibold uppercase tracking-[.22em] text-(--muted)">Admin workspace</div>
+        <div className="mt-1.5 text-[9px] font-semibold uppercase tracking-[.22em] text-(--muted)">Admin workspace</div>
       </div>
       <nav className="mt-6 flex flex-col gap-1 px-3">
         {nav.map((item) => {
@@ -165,8 +167,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         >
           <Menu size={16} />
         </button>
-        <Link href="/admin" className="truncate font-serif text-lg tracking-tight text-(--ink)">
-          Platinum Properties
+        <Link href="/admin" className="flex min-w-0 items-center" aria-label={`${BRAND.name} — admin home`}>
+          <BrandLogo className="h-8" />
         </Link>
         <div className="flex-1" />
         <button

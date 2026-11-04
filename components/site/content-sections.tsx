@@ -80,13 +80,13 @@ export function AboutSection({ listingCount = 0 }: { listingCount?: number }) {
 }
 
 const contactCards = [
-  {
-    icon: MapPin,
-    title: 'Visit the office',
-    lines: [...CONTACT.addressLines],
-    href: mapsHref,
-    cta: 'Open in Maps',
-  },
+  // {
+  //   icon: MapPin,
+  //   title: 'Visit the office',
+  //   lines: [...CONTACT.addressLines],
+  //   href: mapsHref,
+  //   cta: 'Open in Maps',
+  // },
   {
     icon: Phone,
     title: 'Call the sales desk',
@@ -119,7 +119,7 @@ export function ContactSection({ startInquiry }: { startInquiry: () => void }) {
           <p className="text-xs font-bold uppercase tracking-[.2em] text-(--accent)">Contact</p>
           <h2 className="mt-3 max-w-xl font-serif text-[clamp(2rem,4.5vw,3rem)] leading-[1.08] tracking-tight text-(--ink)">Talk to a real advisor.</h2>
           <p className="mt-4 max-w-xl text-[15px] leading-7 text-(--body)">
-            Call, write, or walk into the Bole office — or send an inquiry and we will come back to you.
+            Call, write, or send an inquiry and we will come back to you.
           </p>
         </div>
         <button
@@ -208,8 +208,8 @@ export function CtaSection({ startInquiry }: { startInquiry: () => void }) {
             <p className="text-xs font-bold uppercase tracking-[.2em] text-(--accent)">Your next property starts here</p>
             <h2 className="mt-3 font-serif text-4xl leading-tight sm:text-5xl">Let’s arrange a viewing.</h2>
             <p className="mt-4 max-w-xl text-white/80">
-              Tell us what you are looking for and our advisors will walk you through availability, payment plans and
-              site visits — no obligation.
+              Tell us what you are looking for and we will walk you through availability, payment plans and
+              site visits
             </p>
           </div>
           <div className="flex flex-col gap-3">
@@ -223,7 +223,7 @@ export function CtaSection({ startInquiry }: { startInquiry: () => void }) {
               href={telHref}
               className="inline-flex items-center justify-center gap-2 rounded-full border border-white/25 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10"
             >
-              <Phone size={15} /> Call an agent
+              <Phone size={15} /> Call Us
             </a>
             <a
               href={whatsappHref('Hello Platinum Properties, I would like to arrange a viewing.')}

@@ -119,6 +119,16 @@ html.theme-swapping *::after {
   background: radial-gradient(circle, rgba(201, 164, 92, .34), rgba(201, 164, 92, 0) 66%);
 }
 
+/*
+ * Brand mark. public/logo.png is one flat gold (#ad732a) on transparent alpha, which
+ * sits cleanly on the ivory light palette but turns muddy against the dark navy, so in
+ * dark mode it is only brightened — never recoloured — to stay legible beside the
+ * champagne accents. BrandLogo (components/site/brand-logo.tsx) applies this class.
+ */
+[data-theme='dark'] .brand-logo {
+  filter: brightness(1.38) saturate(1.05);
+}
+
 .font-serif { font-family: var(--font-playfair), Georgia, serif; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; }

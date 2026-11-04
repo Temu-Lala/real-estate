@@ -30,11 +30,16 @@ export type Room = {
 // The shape the admin CMS edits: a unit row without server-assigned identity.
 export type RoomInput = Omit<Room, 'id' | 'mediaIds'>
 
+// The three image groups a listing can carry. 'gallery' photos are the marketing
+// shots used on cards, the landing hero and the detail mosaic; 'floorplan' sheets
+// and 'progress' site photos each get their own section on the listing page.
+export type MediaKind = 'gallery' | 'floorplan' | 'progress'
+
 export type Media = {
   id: string
   url: string
   alt: string
-  kind: string
+  kind: MediaKind
   width: number
   height: number
   sortOrder: number

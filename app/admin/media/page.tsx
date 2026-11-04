@@ -1,14 +1,29 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { Media, Property } from '@/lib/types'
+import type { Media, MediaKind, Property } from '@/lib/types'
 import { api, resolveMediaUrl } from '@/lib/api'
 import { EmptyState, ErrorNote, LoadingState } from '@/components/admin/admin-ui'
+
+// Same three groups the listing page renders, so a bulk upload here lands in the
+// right section instead of defaulting everything into the marketing gallery.
+const KINDS: { value: MediaKind; label: string }[] = [
+  { value: 'gallery', label: 'Gallery photo — cover, cards and the photo mosaic' },
+  { value: 'floorplan', label: 'Floor plan — layout sheet in its own section' },
+  { value: 'progress', label: 'Construction progress — dated site photo' },
+]
+
+const KIND_LABEL: Record<string, string> = {
+  gallery: 'Gallery photo',
+  floorplan: 'Floor plan',
+  progress: 'Progress photo',
+}
 
 export default function AdminMediaPage() {
   const [properties, setProperties] = useState<Property[] | null>(null)
   const [selectedId, setSelectedId] = useState('')
   const [files, setFiles] = useState<File[]>([])
+  const [kind, setKind] = useState<MediaKind>('gallery')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -39,8 +54,8 @@ export default function AdminMediaPage() {
     setError('')
     setMessage('')
     try {
-      const uploaded = await api.uploadMedia(selected.id, files)
-      setMessage(`${uploaded.length} image(s) uploaded to “${selected.title}”.`)
+      const uploaded = await api.uploadMedia(selected.id, files, kind)
+      setMessage(`${uploaded.length} ${KIND_LABEL[kind].toLowerCase()}(s) uploaded to “${selected.title}”.`)
       setFiles([])
       const fresh = await api.adminListProperties()
       setProperties(fresh)
@@ -57,7 +72,8 @@ export default function AdminMediaPage() {
         <div className="text-xs font-bold uppercase tracking-[.2em] text-(--accent)">Media library</div>
         <h1 className="mt-2 font-serif text-4xl tracking-tight text-(--ink)">Property imagery</h1>
         <p className="mt-2 text-sm text-(--muted)">
-          Upload as many gallery photos as a listing needs — bedrooms, bathrooms, kitchens, views, plans. Any pixel
+          Upload as many photos as a listing needs and pick the group they belong to:
+          gallery shots, floor plans or construction-progress updates. Any pixel
           dimensions, any batch size; JPEG/PNG/GIF up to 50MB each. The site crops and scales every ratio responsively.
         </p>
       </div>
@@ -78,7 +94,7 @@ export default function AdminMediaPage() {
       {properties && properties.length > 0 && (
         <div className="mt-8 grid gap-6">
           <div className="rounded-2xl border border-(--line) bg-(--card) p-6">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <label>
                 <span className="mb-1 block text-xs font-semibold text-(--muted)">Property</span>
                 <select
@@ -89,6 +105,20 @@ export default function AdminMediaPage() {
                   {properties.map((property) => (
                     <option key={property.id} value={property.id}>
                       {property.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span className="mb-1 block text-xs font-semibold text-(--muted)">Image type</span>
+                <select
+                  value={kind}
+                  onChange={(e) => setKind(e.target.value as MediaKind)}
+                  className="w-full rounded-xl border border-(--line) bg-(--card) px-3 py-2.5 text-sm outline-none"
+                >
+                  {KINDS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </select>
@@ -127,7 +157,7 @@ export default function AdminMediaPage() {
                     <figure key={media.id} className="overflow-hidden rounded-xl border border-(--line) bg-(--card)">
                       <img src={resolveMediaUrl(media.url)} alt={media.alt} className="aspect-square w-full object-cover" />
                       <figcaption className="px-3 py-2 text-xs text-(--muted)">
-                        {media.width}×{media.height} · {media.kind}
+                        {media.width}×{media.height} · {KIND_LABEL[media.kind] ?? media.kind}
                       </figcaption>
                     </figure>
                   ))}

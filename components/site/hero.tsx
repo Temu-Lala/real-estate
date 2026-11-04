@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { ArrowRight, Building2, Pause, Play, Search, SlidersHorizontal } from 'lucide-react'
 import type { Property, PropertyQuery } from '@/lib/types'
 import { resolveMediaUrl } from '@/lib/api'
+import { isMarketingPhoto } from '@/lib/format'
 import { Reveal } from './reveal'
 
 const tabs: { label: string; value: string }[] = [
@@ -42,10 +43,10 @@ export function Hero({
   // Backdrop slideshow: genuine listing photography only (never stock). Landscape
   // shots lead because they cover a wide hero without awkward cropping, then the
   // largest frames next so the rotation never opens on a soft thumbnail. Floor plans
-  // are layout drawings and must never appear as the landing backdrop. If there is
-  // no media at all, the navy gradient shows instead.
+  // are layout drawings and progress shots document the build — neither may appear as
+  // the landing backdrop. If there is no media at all, the navy gradient shows instead.
   const slides = useMemo(() => {
-    const gallery = properties.flatMap((p) => p.media).filter((m) => m.kind !== 'floorplan')
+    const gallery = properties.flatMap((p) => p.media).filter(isMarketingPhoto)
     const scored = gallery.map((m) => ({
       url: resolveMediaUrl(m.url),
       landscape: m.width > 0 && m.height > 0 && m.width >= m.height * 1.2,
@@ -296,7 +297,7 @@ export function Hero({
                 </option>
               ))}
             </select>
-            <input
+            {/* <input
               type="number"
               min={0}
               value={local.maxPrice ?? ''}
@@ -304,7 +305,7 @@ export function Hero({
               placeholder="Max budget (ETB)"
               aria-label="Maximum budget"
               className={field}
-            />
+            /> */}
             <select
               value={local.beds ?? ''}
               onChange={(e) => set({ beds: e.target.value ? Number(e.target.value) : undefined })}

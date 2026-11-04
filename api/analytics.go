@@ -16,7 +16,7 @@ import (
 // it has already resolved coarse geo, classified source/device, flagged bots and
 // hashed the visitor IP into a rotating daily token. No raw IP ever reaches here.
 type trackPayload struct {
-	Event        string `json:"event"` // view | gallery | plan | inquiry | card | search
+	Event        string `json:"event"` // view | gallery | plan | progress | inquiry | card | search
 	PropertyID   string `json:"propertyId"`
 	VisitorToken string `json:"visitorToken"`
 	Country      string `json:"country"`
@@ -31,7 +31,7 @@ type trackPayload struct {
 }
 
 // viewEvents are the property-scoped event types stored in real_estate_property_views.
-var viewEvents = map[string]bool{"view": true, "gallery": true, "plan": true, "inquiry": true, "card": true}
+var viewEvents = map[string]bool{"view": true, "gallery": true, "plan": true, "progress": true, "inquiry": true, "card": true}
 
 // clampStr trims and hard-caps a value so no caller can overflow a column.
 func clampStr(v string, n int) string {
@@ -219,7 +219,7 @@ type searchStat struct {
 
 // adminAnalytics serves GET /api/v1/admin/analytics?days=30|all&propertyId=...
 // Core metrics count listing VIEWS (bots excluded); engagement and search
-// sections add gallery/plan/inquiry/card actions and what visitors searched for.
+// sections add gallery/plan/progress/inquiry/card actions and what visitors searched for.
 func (s *server) adminAnalytics(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

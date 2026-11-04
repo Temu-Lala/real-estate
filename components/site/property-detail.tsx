@@ -34,6 +34,7 @@ import {
   formatPrice,
   formatPricePerSqm,
   formatRoomSize,
+  isMarketingPhoto,
   squareMeters,
 } from '@/lib/format'
 import { useFavorites } from '@/lib/use-favorites'
@@ -44,7 +45,7 @@ import { SiteFooter } from './site-footer'
 import { Reveal, RevealItem } from './reveal'
 import { MapView, hasValidCoordinates } from './map-view'
 import { CONTACT, telHref } from '@/lib/site-contact'
-import { trackGalleryOpen, trackInquiryOpen, trackPlanOpen, trackPropertyView } from '@/lib/track'
+import { trackGalleryOpen, trackInquiryOpen, trackPlanOpen, trackProgressOpen, trackPropertyView } from '@/lib/track'
 
 type ImageView = { url: string; alt: string; width: number; height: number }
 
@@ -210,12 +211,25 @@ export function PropertyDetail({ slug }: { slug: string }) {
     )
   }
 
-  // Split media into the marketing gallery and the floor-plan set. Every image
-  // in either group opens the same full-screen viewer.
-  const gallery = property.media.filter((m) => m.kind !== 'floorplan').map((m) => toImageView(m, property.title))
+  // Split media into the marketing gallery, the floor-plan set and the construction-
+  // progress log. Every image in any group opens the same full-screen viewer.
+  const gallery = property.media.filter(isMarketingPhoto).map((m) => toImageView(m, property.title))
   const plans = property.media.filter((m) => m.kind === 'floorplan').map((m) => toImageView(m, 'Floor plan'))
   const images: ImageView[] = gallery.length > 0 ? gallery : [{ url: PLACEHOLDER_IMAGE, alt: property.title, width: 0, height: 0 }]
   const liked = isFavorite(property.id)
+
+  // Progress shots are a build diary: `filter` gives us a copy, so sorting it here
+  // never disturbs the gallery order. Oldest upload first, newest last, so visitors
+  // follow the site from foundation to finishing rather than through a photo dump.
+  const progress = property.media
+    .filter((m) => m.kind === 'progress')
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.sortOrder - b.sortOrder)
+    .map((m, i) => ({
+      image: toImageView(m, 'Progress photo'),
+      caption: m.alt && m.alt !== 'Progress photo' ? m.alt : `Progress update ${i + 1}`,
+      date: m.createdAt,
+    }))
+  const progressImages = progress.map((entry) => entry.image)
 
   // Buyer-facing purpose. Derived only from real fields; "Sold" reflects the
   // actual listing state, "Verified" is never implied because we don't model it.
@@ -242,24 +256,24 @@ export function PropertyDetail({ slug }: { slug: string }) {
     if (plans.length > 0) trackPlanOpen(property.id)
     setViewer({ images: plans, i })
   }
+  const openProgress = (i: number) => {
+    if (progressImages.length > 0) trackProgressOpen(property.id)
+    setViewer({ images: progressImages, i })
+  }
 
   const perSqm = formatPricePerSqm(property.price, property.squareFeet)
   // Real-world room schedule: only rows that carry a genuine name or size, with
-  // bare numeric sizes expanded to the platform's unit pair (sq ft + m²).
+  // bare numeric sizes given the platform's unit label (m²).
   const roomRows = property.rooms
     .map((room) => ({ ...room, sizeLabel: formatRoomSize(room.size) }))
     .filter((room) => room.name?.trim() || room.sizeLabel)
-  const areaRow = (sqft: number) => {
-    if (sqft <= 0) return ''
-    const m2 = squareMeters(sqft)
-    return m2 > 0 ? `${formatNumber(sqft)} sq ft · ${formatNumber(m2)} m²` : `${formatNumber(sqft)} sq ft`
+  // Stored square feet, displayed as m² only — an empty string keeps a 0 area out of
+  // the specification rows entirely rather than showing a dash.
+  const areaRow = (squareFeet: number) => {
+    const m2 = squareMeters(squareFeet)
+    return squareFeet > 0 && m2 > 0 ? `${formatNumber(m2)} m²` : ''
   }
-  const floorAreaShort =
-    property.squareFeet > 0
-      ? squareMeters(property.squareFeet) > 0
-        ? `${formatNumber(squareMeters(property.squareFeet))} m²`
-        : `${formatNumber(property.squareFeet)} sq ft`
-      : '—'
+  const floorAreaShort = areaRow(property.squareFeet) || '—'
 
   const specRows: { label: string; value: string }[] = [
     { label: 'Listing status', value: purpose },
@@ -570,6 +584,57 @@ export function PropertyDetail({ slug }: { slug: string }) {
               </section>
             )}
 
+            {/* Construction progress — dated site photos kept as their own timeline,
+                never mixed into the marketing mosaic up top. */}
+            {progress.length > 0 && (
+              <section>
+                <SectionHeading
+                  eyebrow="On site"
+                  title="Construction progress"
+                  action={
+                    formatFriendlyDate(progress[progress.length - 1].date) ? (
+                      <span className="shrink-0 rounded-full bg-(--bg-soft) px-3 py-1.5 text-[11px] font-semibold text-(--muted)">
+                        Latest {formatFriendlyDate(progress[progress.length - 1].date)}
+                      </span>
+                    ) : undefined
+                  }
+                />
+                <ol className="mt-6 grid gap-3 sm:grid-cols-2">
+                  {progress.map((entry, i) => (
+                    <RevealItem key={entry.image.url + i} delay={Math.min(i, 6) * 0.04} className="h-full">
+                      <button
+                        type="button"
+                        onClick={() => openProgress(i)}
+                        aria-label={`Open ${entry.caption} full screen`}
+                        className="group flex h-full w-full cursor-zoom-in items-start gap-4 rounded-2xl border border-(--line) bg-(--card) p-3 text-left transition duration-300 hover:border-(--accent)/60"
+                      >
+                        <span className="relative block shrink-0 overflow-hidden rounded-xl bg-(--chip)">
+                          <img
+                            src={entry.image.url}
+                            alt={entry.caption}
+                            loading="lazy"
+                            className="h-24 w-28 object-cover transition duration-500 group-hover:scale-[1.04]"
+                          />
+                          <span className="absolute inset-0 grid place-items-center bg-[#0b1f3a]/0 text-white transition duration-300 group-hover:bg-[#0b1f3a]/45">
+                            <Maximize2 size={16} className="opacity-0 transition duration-300 group-hover:opacity-100" />
+                          </span>
+                        </span>
+                        <span className="min-w-0 flex-1 pt-0.5">
+                          <span className="block text-sm font-semibold text-(--ink)">{entry.caption}</span>
+                          {formatFriendlyDate(entry.date) && (
+                            <span className="mt-1 block text-xs tabular-nums text-(--muted)">{formatFriendlyDate(entry.date)}</span>
+                          )}
+                          <span className="mt-2 block text-[11px] font-semibold uppercase tracking-[.16em] text-(--accent)">
+                            Step {i + 1} of {progress.length}
+                          </span>
+                        </span>
+                      </button>
+                    </RevealItem>
+                  ))}
+                </ol>
+              </section>
+            )}
+
             {property.features.length > 0 && (
               <section>
                 <SectionHeading eyebrow="What's included" title="Amenities & features" />
@@ -644,8 +709,7 @@ export function PropertyDetail({ slug }: { slug: string }) {
               <SectionHeading eyebrow="Get in touch" title={AGENCY.desk} />
               <div className="mt-5 rounded-2xl border border-(--line) bg-(--card) p-6">
                 <p className="text-sm leading-7 text-(--muted)">
-                  Speak directly with the agency handling this listing to arrange a viewing or request the verified
-                  document pack.
+                  Speak directly with us to arrange a viewing or request the verified document pack.
                 </p>
                 <div className="mt-4 grid gap-2 sm:grid-cols-3">
                   <a href={AGENCY.phoneHref} className="flex items-center gap-2.5 rounded-xl border border-(--line) px-4 py-3 text-sm font-semibold text-(--ink) transition hover:bg-(--bg-soft)">

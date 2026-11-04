@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { api } from '@/lib/api'
+import { BrandLogo } from '@/components/site/brand-logo'
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -28,8 +29,8 @@ export default function AdminLoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-(--bg) px-5">
       <div className="w-full max-w-md rounded-[28px] border border-(--line) bg-(--card) p-8 sm:p-10">
-        <div className="text-xs font-bold uppercase tracking-[.2em] text-(--accent)">Platinum Properties</div>
-        <h1 className="mt-2 font-serif text-4xl text-(--ink)">Admin sign in</h1>
+        <BrandLogo className="h-12" />
+        <h1 className="mt-6 font-serif text-4xl text-(--ink)">Admin sign in</h1>
         <p className="mt-3 text-sm leading-6 text-(--muted)">
           Manage listings, media, and customer inquiries. Access is restricted to workspace administrators.
         </p>

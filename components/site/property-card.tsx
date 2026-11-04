@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { motion } from 'motion/react'
 import { Bath, BedDouble, Camera, Heart, MapPin, Ruler, Star } from 'lucide-react'
 import type { Property } from '@/lib/types'
-import { formatLocation, formatPrice, formatSquareFeet, primaryImage } from '@/lib/format'
+import { formatArea, formatLocation, formatPrice, isMarketingPhoto, primaryImage } from '@/lib/format'
 import { trackCardClick } from '@/lib/track'
 
 export function propertyHref(property: Property): string {
@@ -21,7 +21,7 @@ export function PropertyCard({
   toggle: () => void
 }) {
   const image = primaryImage(property)
-  const photoCount = property.media.filter((m) => m.kind !== 'floorplan').length
+  const photoCount = property.media.filter(isMarketingPhoto).length
   // Prefer the explicit purpose badge; fall back to status when not set.
   const badge = property.listingType || (property.status === 'active' ? 'For sale' : property.status)
 
@@ -106,7 +106,7 @@ export function PropertyCard({
             <Bath size={14} /> {property.bathrooms} baths
           </span>
           <span className="flex items-center gap-1">
-            <Ruler size={14} /> {formatSquareFeet(property.squareFeet)}
+            <Ruler size={14} /> {formatArea(property.squareFeet)}
           </span>
         </div>
         <Link

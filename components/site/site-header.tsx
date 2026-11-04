@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from 'motion/react'
-import { Building2, Clock, Heart, Mail, Menu, MessageCircle, Phone, X } from 'lucide-react'
+import { Clock, Heart, Mail, Menu, MessageCircle, Phone, X } from 'lucide-react'
 import { ThemeToggle } from './theme-toggle'
-import { CONTACT, telHref, mailtoHref, whatsappHref } from '@/lib/site-contact'
+import { BrandLogo } from './brand-logo'
+import { BRAND, CONTACT, telHref, mailtoHref, whatsappHref } from '@/lib/site-contact'
 
 const links = [
   { label: 'Home', href: '/' },
@@ -98,16 +99,16 @@ export function SiteHeader({
         transition={{ duration: 0.45, ease: 'easeOut' }}
         className="mx-auto flex h-[64px] max-w-[1440px] items-center justify-between gap-4 px-5 lg:h-[72px] lg:px-10"
       >
-        <Link href="/" className="flex min-w-0 shrink items-center gap-3" aria-label="Platinum Properties — home">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-(--ink-solid) text-(--accent)">
-            <Building2 size={18} />
-          </div>
-          <div className="min-w-0">
-            <div className="truncate font-serif text-xl tracking-tight text-(--ink)">Platinum Properties</div>
-            <div className="hidden text-[9px] font-semibold uppercase tracking-[.22em] text-(--muted) sm:block">
-              Addis Ababa · Real Estate
-            </div>
-          </div>
+        {/* Brand lockup. public/logo.png already carries the "Platinum" wordmark, so
+            no text wordmark sits beside it — only the descriptor, as a quiet tail on
+            wide screens, separated by a hairline. */}
+        <Link href="/" className="flex min-w-0 shrink items-center gap-3" aria-label={`${BRAND.name} — home`}>
+          <BrandLogo className="h-9 sm:h-11" />
+          <span className="hidden border-l border-(--line) pl-3 text-[9px] font-semibold uppercase leading-4 tracking-[.18em] text-(--muted) lg:block">
+            Addis Ababa
+            <br />
+            Real Estate
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-7 text-sm font-medium text-(--muted) lg:flex" aria-label="Main">

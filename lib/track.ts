@@ -4,7 +4,7 @@
 // resolves geo/source/device and hashes the IP server-side. Nothing identifying
 // leaves the page beyond an event type, the property id (or search term), and
 // the current path.
-type TrackEvent = 'view' | 'gallery' | 'plan' | 'inquiry' | 'card' | 'search'
+type TrackEvent = 'view' | 'gallery' | 'plan' | 'progress' | 'inquiry' | 'card' | 'search'
 
 function send(event: TrackEvent, data: { propertyId?: string; query?: string; results?: number }): void {
   if (typeof window === 'undefined') return
@@ -34,6 +34,7 @@ function send(event: TrackEvent, data: { propertyId?: string; query?: string; re
 export const trackPropertyView = (propertyId: string) => send('view', { propertyId })
 export const trackGalleryOpen = (propertyId: string) => send('gallery', { propertyId })
 export const trackPlanOpen = (propertyId: string) => send('plan', { propertyId })
+export const trackProgressOpen = (propertyId: string) => send('progress', { propertyId })
 export const trackInquiryOpen = (propertyId: string) => send('inquiry', { propertyId })
 export const trackCardClick = (propertyId: string) => send('card', { propertyId })
 export const trackSearch = (query: string, results: number) => send('search', { query, results })

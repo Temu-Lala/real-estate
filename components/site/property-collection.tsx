@@ -13,11 +13,10 @@ const PURPOSE_LABEL: Record<string, string> = {
   Commercial: 'For Lease',
 }
 
-// Compact currency for filter chips so a long budget never dominates the row.
+// Shortened figure for filter chips so a long budget never dominates the row ("1.5M",
+// never a currency symbol — the site shows bare numbers).
 const compactPrice = (n: number) =>
   new Intl.NumberFormat('en', {
-    style: 'currency',
-    currency: 'ETB',
     notation: 'compact',
     maximumFractionDigits: 1,
   }).format(n)

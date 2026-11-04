@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { ArrowDown, ArrowUp, Crosshair, MapPin, Plus, Trash2, X } from 'lucide-react'
 import type { Property, PropertyInput, RoomInput } from '@/lib/types'
-import { formatPrice } from '@/lib/format'
+import { formatPrice, isMarketingPhoto, squareMeters, sqMetersToStoredSquareFeet } from '@/lib/format'
 import { api, resolveMediaUrl } from '@/lib/api'
 import { Overlay } from '@/components/site/overlay'
 import { MapView, hasValidCoordinates } from '@/components/site/map-view'
@@ -15,8 +15,8 @@ const textFields: { key: keyof PropertyInput; label: string; type?: string }[] =
   { key: 'propertyType', label: 'Property type' },
   { key: 'bedrooms', label: 'Bedrooms', type: 'number' },
   { key: 'bathrooms', label: 'Bathrooms', type: 'number' },
-  { key: 'squareFeet', label: 'Floor area (sq ft — m² shown automatically)', type: 'number' },
-  { key: 'lotSquareFeet', label: 'Lot area (sq ft)', type: 'number' },
+  { key: 'squareFeet', label: 'Floor area (m²)', type: 'number' },
+  { key: 'lotSquareFeet', label: 'Lot area (m²)', type: 'number' },
 ]
 
 // Years the admin can pick from the Year-built dropdown (or type any year).
@@ -66,6 +66,17 @@ function isMeaningfulRoom(room: RoomInput): boolean {
 }
 
 const inputClass = 'w-full rounded-xl border border-(--line) bg-(--card) px-3 py-2.5 text-sm outline-none'
+
+// The CMS works in square meters end to end, while the API column stays square feet.
+// form.squareFeet / form.lotSquareFeet therefore hold *m² while the dialog is open and
+// are converted exactly twice: down to m² when a saved listing is loaded here, and back
+// to the stored figure in save(). Never convert these fields anywhere else.
+function areaFieldsFromProperty(property: Property) {
+  return {
+    squareFeet: squareMeters(property.squareFeet),
+    lotSquareFeet: squareMeters(property.lotSquareFeet),
+  }
+}
 
 // Trim, drop blanks and de-dupe case-insensitively. Splitting on commas also tolerates a
 // pasted "A, B, C" run so a single paste never becomes one giant amenity.
@@ -146,8 +157,7 @@ export function PropertyForm({
           status: property.status,
           bedrooms: property.bedrooms,
           bathrooms: property.bathrooms,
-          squareFeet: property.squareFeet,
-          lotSquareFeet: property.lotSquareFeet,
+          ...areaFieldsFromProperty(property),
           yearBuilt: property.yearBuilt,
           propertyType: property.propertyType,
           listingType: property.listingType ?? '',
@@ -203,6 +213,7 @@ export function PropertyForm({
   )
   const [files, setFiles] = useState<File[]>([])
   const [planFiles, setPlanFiles] = useState<File[]>([])
+  const [progressFiles, setProgressFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -273,6 +284,9 @@ export function PropertyForm({
     const payload: PropertyInput = {
       ...form,
       status: publish ? 'active' : form.status,
+      // Send the metric figure back as the unit the API stores.
+      squareFeet: sqMetersToStoredSquareFeet(form.squareFeet),
+      lotSquareFeet: sqMetersToStoredSquareFeet(form.lotSquareFeet),
       rooms: rooms
         .filter(isMeaningfulRoom)
         .map((room) => ({ ...room, price: Math.max(0, Math.round(room.price || 0)) })),
@@ -285,6 +299,9 @@ export function PropertyForm({
       }
       if (planFiles.length > 0) {
         await api.uploadMedia(saved.id, planFiles, 'floorplan')
+      }
+      if (progressFiles.length > 0) {
+        await api.uploadMedia(saved.id, progressFiles, 'progress')
       }
       onSaved(saved)
     } catch (err) {
@@ -575,7 +592,7 @@ export function PropertyForm({
                     <input
                       value={room.size}
                       onChange={(e) => patchRoom(i, { size: e.target.value })}
-                      placeholder="Size (e.g. 14 × 12 ft / 120 m²)"
+                      placeholder="Size (e.g. 4.2 × 3.6 m or 38 m²)"
                       className={inputClass}
                     />
                   </div>
@@ -591,14 +608,14 @@ export function PropertyForm({
                         </option>
                       ))}
                     </select>
-                    <input
+                    {/* <input
                       type="number"
                       min={0}
                       value={room.price || ''}
                       onChange={(e) => patchRoom(i, { price: Number(e.target.value) || 0 })}
                       placeholder="Unit price (ETB)"
                       className={`${inputClass} w-44`}
-                    />
+                    /> */}
                     <div className="ml-auto flex items-center gap-1">
                       <button
                         type="button"
@@ -696,9 +713,9 @@ export function PropertyForm({
               Gallery photos — the main marketing images (exterior, living room, kitchen, bedrooms, views). No pixel or
               count limits; JPEG/PNG/GIF up to 50MB each
             </span>
-            {property && property.media.some((m) => m.kind !== 'floorplan') && (
+            {property && property.media.some((m) => isMarketingPhoto(m)) && (
               <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
-                {property.media.filter((m) => m.kind !== 'floorplan').map((m) => (
+                {property.media.filter(isMarketingPhoto).map((m) => (
                   <img key={m.id} src={resolveMediaUrl(m.url)} alt={m.alt} className="h-16 w-24 shrink-0 rounded-lg object-cover" />
                 ))}
               </div>
@@ -736,6 +753,40 @@ export function PropertyForm({
             />
             {planFiles.length > 0 && (
               <span className="mt-1 block text-xs text-(--muted)">{planFiles.length} floor plan(s) selected — uploaded with save</span>
+            )}
+          </label>
+
+          <label className="sm:col-span-2">
+            <span className="mb-1 block text-xs font-semibold text-(--muted)">
+              Construction progress — site photos showing how the build has advanced. They get their own
+              &ldquo;Construction progress&rdquo; timeline on the listing and never appear as the cover photo. Upload a
+              batch whenever the site moves on; JPEG/PNG/GIF up to 50MB each
+            </span>
+            {property && property.media.some((m) => m.kind === 'progress') && (
+              <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
+                {property.media
+                  .filter((m) => m.kind === 'progress')
+                  .map((m) => (
+                    <img
+                      key={m.id}
+                      src={resolveMediaUrl(m.url)}
+                      alt={m.alt}
+                      className="h-16 w-24 shrink-0 rounded-lg border border-(--line) bg-(--card) object-cover"
+                    />
+                  ))}
+              </div>
+            )}
+            <input
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/gif"
+              onChange={(e) => setProgressFiles(Array.from(e.target.files ?? []))}
+              className="block w-full text-sm text-(--muted) file:mr-3 file:rounded-full file:border-0 file:bg-(--chip) file:px-4 file:py-2 file:text-sm file:font-semibold file:text-(--ink)"
+            />
+            {progressFiles.length > 0 && (
+              <span className="mt-1 block text-xs text-(--muted)">
+                {progressFiles.length} progress photo(s) selected — uploaded with save
+              </span>
             )}
           </label>
         </div>

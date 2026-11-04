@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { BrandLogo } from './brand-logo'
 import { CONTACT, SOCIALS, telHref, mailtoHref } from '@/lib/site-contact'
 
 const exploreLinks = [
@@ -13,8 +14,8 @@ export function SiteFooter() {
   return (
     <footer className="border-t border-(--line) px-5 py-10 sm:py-12 lg:px-10">
       <div className="mx-auto grid max-w-[1440px] gap-8 overflow-hidden sm:grid-cols-2 sm:gap-10 lg:grid-cols-4">
-        <div>
-          <div className="font-serif text-2xl text-(--ink)">Platinum Properties</div>
+        <div className="min-w-0">
+          <BrandLogo className="h-12" />
           <p className="mt-3 max-w-xs text-sm leading-6 text-(--muted)">Your trusted real estate partner in Addis Ababa.</p>
         </div>
         <div className="min-w-0">

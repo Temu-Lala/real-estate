@@ -1,4 +1,13 @@
-import type { AnalyticsReport, Lead, LeadInput, Media, Property, PropertyInput, PropertyQuery } from './types'
+import type {
+  AnalyticsReport,
+  Lead,
+  LeadInput,
+  Media,
+  MediaKind,
+  Property,
+  PropertyInput,
+  PropertyQuery,
+} from './types'
 
 // export const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080').replace(/\/+$/, '')
 export const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/+$/, '')
@@ -70,7 +79,7 @@ export const api = {
   },
   updateLeadStatus: (id: string, status: string) =>
     request<void>('/api/v1/admin/leads', jsonInit('PATCH', { id, status })),
-  uploadMedia: (propertyId: string, files: File[] | FileList, kind: 'gallery' | 'floorplan' = 'gallery') => {
+  uploadMedia: (propertyId: string, files: File[] | FileList, kind: MediaKind = 'gallery') => {
     const form = new FormData()
     form.append('propertyId', propertyId)
     form.append('kind', kind)
