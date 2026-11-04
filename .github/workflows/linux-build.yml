@@ -71,7 +71,7 @@ jobs:
           # Copy Next.js static assets
           cp -a .next/static/. deploy/.next/static/
 
-          # Copy public assets without overwriting other server data
+          # Copy public assets
           if [ -d public ]; then
             mkdir -p deploy/public
             cp -a public/. deploy/public/
@@ -89,19 +89,26 @@ jobs:
           echo "Deployment package created."
           ls -lh real-estate-linux.tar.gz
 
-      # 7. Configure SSH
+      # 7. Configure SSH and decrypt private key
       - name: Configure SSH
         shell: bash
         env:
           SSH_KEY: ${{ secrets.CPANEL_SSH_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.CPANEL_SSH_PASSPHRASE }}
           CPANEL_HOST: ${{ secrets.CPANEL_HOST }}
           CPANEL_USER: ${{ secrets.CPANEL_USER }}
         run: |
           set -Eeuo pipefail
 
-          # Validate secrets
+          echo "Validating required secrets..."
+
           test -n "$SSH_KEY" || {
             echo "CPANEL_SSH_KEY is missing."
+            exit 1
+          }
+
+          test -n "$SSH_PASSPHRASE" || {
+            echo "CPANEL_SSH_PASSPHRASE is missing."
             exit 1
           }
 
@@ -122,18 +129,32 @@ jobs:
           printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
-          # Validate private key format
-          echo "Validating SSH private key..."
+          echo "Decrypting SSH private key..."
 
-          ssh-keygen -y -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub
+          # Remove passphrase from temporary runner copy only
+          ssh-keygen -p \
+            -P "$SSH_PASSPHRASE" \
+            -N "" \
+            -f ~/.ssh/deploy_key \
+            -q
 
-          echo "Private key is valid."
+          echo "Validating decrypted private key..."
+
+          ssh-keygen -y \
+            -P "" \
+            -f ~/.ssh/deploy_key \
+            > ~/.ssh/deploy_key.pub
+
+          chmod 600 ~/.ssh/deploy_key.pub
+
+          echo "Private key validated successfully."
 
           echo "Deployment key fingerprint:"
           ssh-keygen -lf ~/.ssh/deploy_key.pub
 
           # Add server host key
-          ssh-keyscan -H -T 15 "$CPANEL_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -H -T 15 "$CPANEL_HOST" \
+            >> ~/.ssh/known_hosts 2>/dev/null
 
           test -s ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
@@ -155,15 +176,16 @@ jobs:
 
           echo "Testing SSH authentication..."
 
-          ssh -vv \
+          ssh \
+            -vv \
             -p 22 \
             -o ConnectTimeout=20 \
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o PubkeyAcceptedAlgorithms=rsa-sha2-512,rsa-sha2-256 \
-            -i ~/.ssh/deploy_key \
+            -i "$HOME/.ssh/deploy_key" \
             "$CPANEL_USER@$CPANEL_HOST" \
             "echo SSH_CONNECTION_SUCCESS && whoami"
 
@@ -185,11 +207,11 @@ jobs:
 
           scp \
             -P 22 \
-            -i ~/.ssh/deploy_key \
+            -i "$HOME/.ssh/deploy_key" \
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o PubkeyAcceptedAlgorithms=rsa-sha2-512,rsa-sha2-256 \
             "$ARCHIVE" \
             "$CPANEL_USER@$CPANEL_HOST:$APP_DIR/$ARCHIVE"
@@ -207,11 +229,11 @@ jobs:
 
           ssh \
             -p 22 \
-            -i ~/.ssh/deploy_key \
+            -i "$HOME/.ssh/deploy_key" \
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o PubkeyAcceptedAlgorithms=rsa-sha2-512,rsa-sha2-256 \
             "$CPANEL_USER@$CPANEL_HOST" \
             'bash -s' <<'REMOTE'
