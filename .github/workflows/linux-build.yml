@@ -122,12 +122,12 @@ jobs:
             exit 1
           }
 
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
 
           # Write private key and normalize Windows line endings
-          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
 
           echo "Decrypting SSH private key..."
 
@@ -135,29 +135,29 @@ jobs:
           ssh-keygen -p \
             -P "$SSH_PASSPHRASE" \
             -N "" \
-            -f ~/.ssh/deploy_key \
+            -f "$HOME/.ssh/deploy_key" \
             -q
 
           echo "Validating decrypted private key..."
 
           ssh-keygen -y \
             -P "" \
-            -f ~/.ssh/deploy_key \
-            > ~/.ssh/deploy_key.pub
+            -f "$HOME/.ssh/deploy_key" \
+            > "$HOME/.ssh/deploy_key.pub"
 
-          chmod 600 ~/.ssh/deploy_key.pub
+          chmod 600 "$HOME/.ssh/deploy_key.pub"
 
           echo "Private key validated successfully."
 
           echo "Deployment key fingerprint:"
-          ssh-keygen -lf ~/.ssh/deploy_key.pub
+          ssh-keygen -lf "$HOME/.ssh/deploy_key.pub"
 
           # Add server host key
           ssh-keyscan -H -T 15 "$CPANEL_HOST" \
-            >> ~/.ssh/known_hosts 2>/dev/null
+            >> "$HOME/.ssh/known_hosts" 2>/dev/null
 
-          test -s ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
+          test -s "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
 
           echo "SSH configuration completed."
 
@@ -172,14 +172,16 @@ jobs:
 
           echo "Testing cPanel SSH port..."
 
-          nc -vz -w 15 "$CPANEL_HOST" 22
+          nc -vz -w 20 "$CPANEL_HOST" 22
 
           echo "Testing SSH authentication..."
 
           ssh \
             -vv \
             -p 22 \
-            -o ConnectTimeout=20 \
+            -o ConnectTimeout=30 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=3 \
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
@@ -191,7 +193,7 @@ jobs:
 
           echo "SSH connectivity and authentication successful."
 
-      # 9. Upload deployment archive
+      # 9. Upload deployment archive with retries
       - name: Upload frontend build
         shell: bash
         env:
@@ -203,20 +205,45 @@ jobs:
           APP_DIR="/home/appartme/real-estate"
           ARCHIVE="real-estate-linux.tar.gz"
 
+          test -s "$ARCHIVE"
+
           echo "Uploading frontend build..."
 
-          scp \
-            -P 22 \
-            -i "$HOME/.ssh/deploy_key" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
-            -o PubkeyAcceptedAlgorithms=rsa-sha2-512,rsa-sha2-256 \
-            "$ARCHIVE" \
-            "$CPANEL_USER@$CPANEL_HOST:$APP_DIR/$ARCHIVE"
+          for attempt in 1 2 3; do
+            echo "Upload attempt $attempt of 3..."
 
-          echo "Frontend archive uploaded successfully."
+            if nc -vz -w 20 "$CPANEL_HOST" 22; then
+
+              if scp \
+                -P 22 \
+                -i "$HOME/.ssh/deploy_key" \
+                -o ConnectTimeout=30 \
+                -o ServerAliveInterval=15 \
+                -o ServerAliveCountMax=3 \
+                -o BatchMode=yes \
+                -o IdentitiesOnly=yes \
+                -o StrictHostKeyChecking=yes \
+                -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+                -o PubkeyAcceptedAlgorithms=rsa-sha2-512,rsa-sha2-256 \
+                "$ARCHIVE" \
+                "$CPANEL_USER@$CPANEL_HOST:$APP_DIR/$ARCHIVE"; then
+
+                echo "Frontend archive uploaded successfully."
+                exit 0
+              fi
+
+            else
+              echo "SSH port 22 is unreachable."
+            fi
+
+            if [ "$attempt" -lt 3 ]; then
+              echo "Waiting 15 seconds before retry..."
+              sleep 15
+            fi
+          done
+
+          echo "ERROR: Upload failed after 3 attempts."
+          exit 1
 
       # 10. Deploy frontend on cPanel
       - name: Deploy to cPanel
@@ -230,6 +257,9 @@ jobs:
           ssh \
             -p 22 \
             -i "$HOME/.ssh/deploy_key" \
+            -o ConnectTimeout=30 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=3 \
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
@@ -244,17 +274,18 @@ jobs:
           ARCHIVE="$APP_DIR/real-estate-linux.tar.gz"
           STAGE="$APP_DIR/deploy-staging"
           TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
+
           BACKUP="$APP_DIR/.next-backup-$TIMESTAMP"
           NODE_BACKUP="$APP_DIR/.node_modules-backup-$TIMESTAMP"
+          SERVER_BACKUP="$APP_DIR/.server-backup-$TIMESTAMP"
+          PACKAGE_BACKUP="$APP_DIR/.package-backup-$TIMESTAMP"
 
           cd "$APP_DIR"
 
           echo "Starting frontend deployment..."
 
-          # Ensure deployment archive exists
+          # Validate archive
           test -s "$ARCHIVE"
-
-          # Validate archive before extraction
           tar -tzf "$ARCHIVE" >/dev/null
 
           # Prepare clean staging directory
@@ -272,57 +303,62 @@ jobs:
 
           echo "Standalone build validated."
 
-          # Preserve existing build
-          if [ -d "$APP_DIR/.next" ]; then
-            mv "$APP_DIR/.next" "$BACKUP"
-          fi
+          # Backup current files
+          [ ! -d "$APP_DIR/.next" ] || mv "$APP_DIR/.next" "$BACKUP"
+          [ ! -d "$APP_DIR/node_modules" ] || mv "$APP_DIR/node_modules" "$NODE_BACKUP"
+          [ ! -f "$APP_DIR/server.js" ] || cp -a "$APP_DIR/server.js" "$SERVER_BACKUP"
+          [ ! -f "$APP_DIR/package.json" ] || cp -a "$APP_DIR/package.json" "$PACKAGE_BACKUP"
 
-          # Install new Next.js build
-          if ! mv "$STAGE/.next" "$APP_DIR/.next"; then
-            echo "New build installation failed."
+          rollback() {
+            echo "Deployment failed. Restoring previous frontend..."
+
+            rm -rf "$APP_DIR/.next" "$APP_DIR/node_modules"
 
             if [ -d "$BACKUP" ]; then
               mv "$BACKUP" "$APP_DIR/.next"
             fi
 
+            if [ -d "$NODE_BACKUP" ]; then
+              mv "$NODE_BACKUP" "$APP_DIR/node_modules"
+            fi
+
+            if [ -f "$SERVER_BACKUP" ]; then
+              cp -a "$SERVER_BACKUP" "$APP_DIR/server.js"
+            fi
+
+            if [ -f "$PACKAGE_BACKUP" ]; then
+              cp -a "$PACKAGE_BACKUP" "$APP_DIR/package.json"
+            fi
+          }
+
+          # Install new frontend files
+          if ! mv "$STAGE/.next" "$APP_DIR/.next"; then
+            rollback
             exit 1
           fi
 
-          # Update standalone server
-          cp -f "$STAGE/server.js" "$APP_DIR/server.js"
-          cp -f "$STAGE/package.json" "$APP_DIR/package.json"
-
-          # Replace production dependencies
-          if [ -d "$STAGE/node_modules" ]; then
-
-            if [ -d "$APP_DIR/node_modules" ]; then
-              mv "$APP_DIR/node_modules" "$NODE_BACKUP"
-            fi
-
-            if ! mv "$STAGE/node_modules" "$APP_DIR/node_modules"; then
-              echo "Dependency installation failed."
-
-              if [ -d "$NODE_BACKUP" ]; then
-                mv "$NODE_BACKUP" "$APP_DIR/node_modules"
-              fi
-
-              rm -rf "$APP_DIR/.next"
-
-              if [ -d "$BACKUP" ]; then
-                mv "$BACKUP" "$APP_DIR/.next"
-              fi
-
-              exit 1
-            fi
+          if ! mv "$STAGE/node_modules" "$APP_DIR/node_modules"; then
+            rollback
+            exit 1
           fi
 
-          # Update public assets if included
+          if ! cp -f "$STAGE/server.js" "$APP_DIR/server.js"; then
+            rollback
+            exit 1
+          fi
+
+          if ! cp -f "$STAGE/package.json" "$APP_DIR/package.json"; then
+            rollback
+            exit 1
+          fi
+
+          # Update public assets without deleting unrelated files
           if [ -d "$STAGE/public" ]; then
             mkdir -p "$APP_DIR/public"
             cp -a "$STAGE/public/." "$APP_DIR/public/"
           fi
 
-          # Verify installed build
+          # Verify installation
           test -f "$APP_DIR/server.js"
           test -f "$APP_DIR/.next/BUILD_ID"
           test -d "$APP_DIR/node_modules"
@@ -333,13 +369,14 @@ jobs:
           mkdir -p "$APP_DIR/tmp"
           touch "$APP_DIR/tmp/restart.txt"
 
-          # Clean temporary deployment files
+          # Clean staging and archive
           rm -rf "$STAGE"
           rm -f "$ARCHIVE"
 
-          # Remove previous backups after successful installation
+          # Remove backups after successful deployment
           rm -rf "$BACKUP"
           rm -rf "$NODE_BACKUP"
+          rm -f "$SERVER_BACKUP" "$PACKAGE_BACKUP"
 
           echo "======================================"
           echo "FRONTEND DEPLOYMENT SUCCESSFUL"
