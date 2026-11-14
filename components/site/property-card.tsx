@@ -6,6 +6,7 @@ import { Bath, BedDouble, Camera, Heart, MapPin, Ruler, Star } from 'lucide-reac
 import type { Property } from '@/lib/types'
 import { formatArea, formatLocation, formatPrice, isMarketingPhoto, primaryImage } from '@/lib/format'
 import { trackCardClick } from '@/lib/track'
+import { ThumbnailImage } from '@/components/ui/optimized-image'
 
 export function propertyHref(property: Property): string {
   return `/properties/${encodeURIComponent(property.slug || property.id)}`
@@ -42,10 +43,9 @@ export function PropertyCard({
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-(--chip)">
         <Link href={propertyHref(property)} className="block size-full">
-          <img
+          <ThumbnailImage
             src={image}
             alt={property.title}
-            loading="lazy"
             className="size-full object-cover transition duration-500 group-hover:scale-105"
           />
         </Link>

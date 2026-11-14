@@ -25,7 +25,8 @@ export function sqMetersToStoredSquareFeet(value: number): number {
 const amount = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
 
 export function formatPrice(price: number): string {
-  return amount.format(price || 0)
+  if (!price || price === 0) return '—'
+  return amount.format(price)
 }
 
 // A schedule-priced listing quotes the cheapest unit that is still available — the same

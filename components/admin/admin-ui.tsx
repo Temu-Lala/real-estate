@@ -23,17 +23,23 @@ export function StatCard({
   )
 }
 
-export function EmptyState({ title, copy }: { title: string; copy: string }) {
+export function EmptyState({ title, copy, action }: { title: string; copy: string; action?: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-dashed border-(--line) bg-(--card) p-10 text-center">
       <div className="font-serif text-2xl text-(--ink)">{title}</div>
       <p className="mt-2 text-sm text-(--muted)">{copy}</p>
+      {action && <div className="mt-6">{action}</div>}
     </div>
   )
 }
 
-export function LoadingState() {
-  return <div className="py-16 text-center text-sm text-(--muted)">Loading…</div>
+export function LoadingState({ message = 'Loading…' }: { message?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <div className="mb-4 size-12 animate-spin rounded-full border-4 border-(--line) border-t-(--accent)" />
+      <p className="text-sm text-(--muted)">{message}</p>
+    </div>
+  )
 }
 
 export function ErrorNote({ message }: { message: string }) {

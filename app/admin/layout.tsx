@@ -9,6 +9,7 @@ import { api } from '@/lib/api'
 import { BRAND } from '@/lib/site-contact'
 import { BrandLogo } from '@/components/site/brand-logo'
 import { LoadingState } from '@/components/admin/admin-ui'
+import { ToastContainer } from '@/components/admin/toast'
 
 const nav = [
   { label: 'Overview', href: '/admin', icon: LayoutDashboard, count: null },
@@ -196,6 +197,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </motion.div>
         )}
       </section>
+
+      {/* Toast notifications */}
+      <ToastContainer />
     </div>
   )
 }

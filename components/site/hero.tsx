@@ -8,6 +8,7 @@ import type { Property, PropertyQuery } from '@/lib/types'
 import { resolveMediaUrl } from '@/lib/api'
 import { isMarketingPhoto } from '@/lib/format'
 import { Reveal } from './reveal'
+import { HeroImage } from '@/components/ui/optimized-image'
 
 const tabs: { label: string; value: string }[] = [
   { label: 'Buy', value: 'Sale' },
@@ -131,11 +132,8 @@ export function Hero({
         // Crossfading slides with a very slow settle from a slight over-zoom, so the
         // landing reads as moving photography rather than a static banner.
         <AnimatePresence>
-          <motion.img
+          <motion.div
             key={slides[slide]}
-            src={slides[slide]}
-            alt=""
-            aria-hidden
             initial={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 1.07 }}
             animate={reducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
             // The exit carries its own short transition: otherwise it inherits the 8s
@@ -146,8 +144,10 @@ export function Hero({
               opacity: { duration: 1.2, ease: 'easeInOut' },
               scale: { duration: (SLIDE_MS / 1000) + 1.2, ease: 'linear' },
             }}
-            className="absolute inset-0 size-full object-cover"
-          />
+            className="absolute inset-0 size-full"
+          >
+            <HeroImage src={slides[slide]} alt="" className="size-full object-cover" />
+          </motion.div>
         </AnimatePresence>
       )}
       <div className="absolute inset-0 bg-gradient-to-br from-[#060f1c]/95 via-[#0b1f3a]/72 to-[#0b1f3a]/30" />

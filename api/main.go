@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -33,6 +34,11 @@ func main() {
 	if err := db.Ping(); err != nil {
 		log.Fatal(err)
 	}
+
+	// Configure connection pool for better performance
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	uploadDir := os.Getenv("UPLOAD_DIR")
 	if uploadDir == "" {
@@ -69,7 +75,7 @@ func main() {
 		port = "8080"
 	}
 	log.Printf("Haven & Stone API listening on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, withCORS(mux)))
+	log.Fatal(http.ListenAndServe(":"+port, withCORS(cacheMiddleware(mux))))
 }
 
 // health reports database availability for load balancers and monitors.

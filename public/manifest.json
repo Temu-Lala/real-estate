@@ -1,0 +1,24 @@
+{
+  "name": "Platinum Properties - Premium Addis Ababa Real Estate",
+  "short_name": "Platinum Properties",
+  "description": "Buy, rent and invest in exceptional homes across Addis Ababa, Ethiopia",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f3ee",
+  "theme_color": "#c9a45c",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

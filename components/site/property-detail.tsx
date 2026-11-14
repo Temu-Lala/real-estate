@@ -46,6 +46,7 @@ import { Reveal, RevealItem } from './reveal'
 import { MapView, hasValidCoordinates } from './map-view'
 import { CONTACT, telHref } from '@/lib/site-contact'
 import { trackGalleryOpen, trackInquiryOpen, trackPlanOpen, trackProgressOpen, trackPropertyView } from '@/lib/track'
+import { OptimizedImage, PropertyImage } from '@/components/ui/optimized-image'
 
 type ImageView = { url: string; alt: string; width: number; height: number }
 
@@ -399,7 +400,8 @@ export function PropertyDetail({ slug }: { slug: string }) {
               <div className="text-[11px] font-bold uppercase tracking-[.2em] text-(--muted)">{isSold ? 'Sold for' : 'Guide price'}</div>
               <div className="mt-1.5 font-serif text-[2.1rem] leading-none text-(--ink)">{formatPrice(property.price)}</div>
               <div className="mt-2 text-xs text-(--muted)">
-                {perSqm !== '—' ? `${perSqm} / m² · ` : ''}Est. {monthlyEstimate(property.price)}/mo
+                {perSqm !== '—' ? `${perSqm} / m² · ` : ''}
+                {property.price > 0 && `Est. ${monthlyEstimate(property.price)}/mo`}
               </div>
             </div>
           </div>
@@ -416,7 +418,13 @@ export function PropertyDetail({ slug }: { slug: string }) {
               aria-label="Open photo full screen"
               className="group relative block aspect-[16/9] w-full cursor-zoom-in overflow-hidden rounded-[24px] bg-(--chip)"
             >
-              <img src={images[0].url} alt={property.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]" />
+              <PropertyImage
+                src={images[0].url}
+                alt={property.title}
+                width={images[0].width}
+                height={images[0].height}
+                className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"
+              />
               <span className="absolute right-4 top-4 flex size-10 items-center justify-center rounded-full bg-[#0b1f3a]/70 text-white backdrop-blur">
                 <Maximize2 size={17} />
               </span>
@@ -431,7 +439,13 @@ export function PropertyDetail({ slug }: { slug: string }) {
                   aria-label="Open photo full screen"
                   className="group relative col-span-2 row-span-2 cursor-zoom-in overflow-hidden rounded-2xl bg-(--chip)"
                 >
-                  <img src={images[0].url} alt={property.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
+                  <PropertyImage
+                    src={images[0].url}
+                    alt={property.title}
+                    width={images[0].width}
+                    height={images[0].height}
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                  />
                   <span className="absolute right-4 top-4 flex size-10 items-center justify-center rounded-full bg-[#0b1f3a]/70 text-white backdrop-blur transition group-hover:bg-[#0b1f3a]/90">
                     <Maximize2 size={17} />
                   </span>
@@ -450,7 +464,13 @@ export function PropertyDetail({ slug }: { slug: string }) {
                       aria-label={`Open photo ${gi + 1}`}
                       className={`group relative cursor-zoom-in overflow-hidden rounded-2xl bg-(--chip) ${images.length === 2 ? 'row-span-2' : ''}`}
                     >
-                      <img src={photo.url} alt={photo.alt} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]" />
+                      <PropertyImage
+                        src={photo.url}
+                        alt={photo.alt}
+                        width={photo.width}
+                        height={photo.height}
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+                      />
                       {isLast && extraCount > 0 && (
                         <span className="absolute inset-0 grid place-items-center bg-[#0b1f3a]/60 text-sm font-bold text-white backdrop-blur-[1px]">
                         +{extraCount} more

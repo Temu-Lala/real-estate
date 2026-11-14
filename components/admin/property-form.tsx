@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, Crosshair, MapPin, Plus, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Crosshair, MapPin, Plus, Trash2, X, Loader2 } from 'lucide-react'
 import type { Property, PropertyInput, RoomInput } from '@/lib/types'
 import { formatPrice, isMarketingPhoto, squareMeters, sqMetersToStoredSquareFeet } from '@/lib/format'
 import { api, resolveMediaUrl } from '@/lib/api'
 import { Overlay } from '@/components/site/overlay'
 import { MapView, hasValidCoordinates } from '@/components/site/map-view'
 import { ErrorNote, StatusBadge } from '@/components/admin/admin-ui'
+import { success, error as toastError } from '@/components/admin/toast'
 
 const textFields: { key: keyof PropertyInput; label: string; type?: string }[] = [
   { key: 'title', label: 'Title' },
@@ -217,6 +218,18 @@ export function PropertyForm({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
+  // Validate file size and show warnings
+  const validateFileSize = (file: File, maxSizeMB: number = 5): { valid: boolean; message?: string } => {
+    const maxSizeBytes = maxSizeMB * 1024 * 1024
+    if (file.size > maxSizeBytes) {
+      return {
+        valid: false,
+        message: `File too large: ${(file.size / 1024 / 1024).toFixed(1)}MB (max ${maxSizeMB}MB)`,
+      }
+    }
+    return { valid: true }
+  }
+
   const pinned = hasValidCoordinates(form.coordinates)
 
   // Derived pricing state — the schedule summary the admin sees while editing.
@@ -279,6 +292,17 @@ export function PropertyForm({
       setError('Per-unit pricing needs at least one room or unit with a price.')
       return
     }
+
+    // Validate file sizes before upload
+    const allFiles = [...files, ...planFiles, ...progressFiles]
+    for (const file of allFiles) {
+      const validation = validateFileSize(file, 10) // Allow up to 10MB for large images
+      if (!validation.valid) {
+        setError(validation.message)
+        return
+      }
+    }
+
     setBusy(true)
     setError('')
     const payload: PropertyInput = {
@@ -303,9 +327,12 @@ export function PropertyForm({
       if (progressFiles.length > 0) {
         await api.uploadMedia(saved.id, progressFiles, 'progress')
       }
+      success(property ? 'Property updated successfully' : 'Property created successfully')
       onSaved(saved)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to save the property right now.')
+      const message = err instanceof Error ? err.message : 'Unable to save the property right now.'
+      setError(message)
+      toastError(message)
     } finally {
       setBusy(false)
     }
@@ -314,8 +341,8 @@ export function PropertyForm({
   return (
     <Overlay close={close}>
       <div className="relative max-h-[92vh] w-full max-w-2xl overflow-auto rounded-t-[28px] bg-(--card) p-7 sm:rounded-[28px] sm:p-10">
-        <button onClick={close} className="absolute right-5 top-5" aria-label="Close">
-          ✕
+        <button onClick={close} className="absolute right-5 top-5 text-(--muted) hover:text-(--ink)" aria-label="Close">
+          <X size={20} />
         </button>
         <div className="text-xs font-bold uppercase tracking-[.2em] text-(--accent)">Property CMS</div>
         <div className="mt-2 flex flex-wrap items-center gap-3">

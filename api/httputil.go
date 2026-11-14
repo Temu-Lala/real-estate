@@ -5,11 +5,13 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // writeJSON serialises v as a JSON response with the given status code.
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
@@ -31,6 +33,12 @@ func slugify(v string) string {
 // calls from the Next.js frontend, and short-circuits preflight requests.
 func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Security headers
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+
+		// CORS headers
 		if origin := r.Header.Get("Origin"); origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
@@ -38,9 +46,27 @@ func withCORS(next http.Handler) http.Handler {
 		}
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+
+		// Cache static files
+		if strings.HasPrefix(r.URL.Path, "/uploads/") {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		}
+
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// cacheMiddleware adds caching headers for GET requests to public endpoints
+func cacheMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/properties") {
+			// Cache property listings for 5 minutes
+			w.Header().Set("Cache-Control", "public, max-age=300, s-maxage=300")
+			w.Header().Set("Vary", "Accept-Encoding")
 		}
 		next.ServeHTTP(w, r)
 	})
